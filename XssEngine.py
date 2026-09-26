@@ -587,6 +587,13 @@ def cmd_daemon(cfg, max_seconds=0):
             elif time.time() - last_verify > 1800:   # re-apply every 30 min against drift
                 apply_profile(cfg, a, want, 're-verify', state)
                 last_verify = time.time()
+            else:
+                # OS focus layer runs every poll (cheap: debounced internally,
+                # only touches priorities when the foreground app changed).
+                try:
+                    apply_os_tweaks(cfg, a, want, 'poll', state)
+                except Exception as e:
+                    log('os tweaks poll failed: %s' % e, 'WARN')
             m = a.metrics() or {}
             with open(TELEMETRY_CSV, 'a', newline='', encoding='utf-8') as f:
                 w = csv.writer(f)
