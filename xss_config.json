@@ -1,0 +1,53 @@
+{
+  "engine_name": "AMD XSS Engine",
+  "version": "0.1.0",
+  "poll_seconds": 5,
+  "idle_to_eco_minutes": 0,
+  "_idle_to_eco_note": "0 disables the idle rule. Set e.g. 10 to fall back to eco after N minutes without user input.",
+  "profiles": {
+    "eco": {
+      "scheme": "AMD Engine - Eco",
+      "chill": { "enabled": true, "min": 30, "max": 60 },
+      "frtc":  { "enabled": false, "fps": 60 }
+    },
+    "balanced": {
+      "scheme": "AMD Engine - Balanced",
+      "chill": { "enabled": true, "min": 60, "max": 120 },
+      "frtc":  { "enabled": false, "fps": 60 }
+    },
+    "performance": {
+      "scheme": "AMD Engine - Performance",
+      "chill": { "enabled": false, "min": 75, "max": 140 },
+      "frtc":  { "enabled": false, "fps": 60 }
+    },
+    "stock": {
+      "scheme": "Balanced",
+      "chill": { "enabled": true, "min": 75, "max": 140 },
+      "frtc":  { "enabled": false, "fps": 60 }
+    }
+  },
+  "rules": {
+    "_comment": "Process-name patterns (case-insensitive globs) matched against the foreground window's executable.",
+    "games": [
+      "cs2.exe",
+      "VALORANT.exe",
+      "FortniteClient-Win64-Shipping.exe",
+      "javaw.exe"
+    ],
+    "_games_note": "Add the executables of your own games here (case-insensitive, * wildcards allowed).",
+    "calls": [
+      "Discord.exe",
+      "Zoom.exe",
+      "Teams.exe",
+      "ms-teams.exe",
+      "WhatsApp.exe",
+      "Telegram.exe",
+      "Skype.exe",
+      "LINE.exe"
+    ],
+    "game_profile": "performance",
+    "call_profile": "eco",
+    "idle_profile": "eco",
+    "default_profile": "balanced"
+  }
+}

@@ -1,0 +1,3 @@
+# Optional: GPU telemetry and frame-rate control (ADLX).
+# The engine runs without it - the ADLX features simply stay disabled.
+amd-adlx>=1.0.3

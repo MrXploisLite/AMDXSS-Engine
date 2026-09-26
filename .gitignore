@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+logs/
+state/
+ROADMAP.md
+.venv/
+venv/
+*.log
+Thumbs.db
+.DS_Store
