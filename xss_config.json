@@ -56,6 +56,8 @@
     "debounce": true,
     "boost_foreground": true,
     "restore_previous": true,
-    "calm_background": false
+    "calm_background": false,
+    "calm_budget_seconds": 8.0,
+    "calm_exclude": []
   }
 }

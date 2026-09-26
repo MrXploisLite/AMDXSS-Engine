@@ -408,43 +408,97 @@ def set_priority(pid, cls):
         kernel32.CloseHandle(h)
 
 
-def top_cpu_pids(exclude=(), limit=3):
-    """PIDs with the highest recent CPU share, via typeperf-free counters."""
+# Processes the background calmer must never touch (system-critical, no .exe).
+CALM_DENYLIST = frozenset([
+    'smss', 'csrss', 'wininit', 'services', 'lsass',
+    'winlogon', 'fontdrvhost', 'dwm', 'sihost',
+    'taskhostw', 'ctfmon', 'audiodg', 'conhost',
+    'svchost', 'searchindexer', 'searchhost',
+    'shellexperiencehost', 'startmenuexperiencehost',
+    'applicationframehost', 'runtimebroker', 'spoolsv',
+    'systemsettings', 'crossdeviceresume',
+])
+
+_CALM_CACHE = {'tasklist': None, 'ts': 0.0}
+
+
+def _tasklist_map(max_age=30.0):
+    """Process name (lowercased, no .exe, trailing #N stripped) -> [pids].
+
+    Keys match perf-counter instance names (which carry no .exe suffix).
+    One `tasklist` call, cached for max_age seconds, so the calmer never
+    spawns a subprocess per candidate name."""
+    now = time.time()
+    if _CALM_CACHE['tasklist'] is not None and now - _CALM_CACHE['ts'] < max_age:
+        return _CALM_CACHE['tasklist']
+    m = {}
+    try:
+        q = subprocess.run(['tasklist', '/fo', 'csv', '/nh'],
+                           capture_output=True, text=True, timeout=10)
+        for line in q.stdout.splitlines():
+            parts = [p.strip('"') for p in line.split('","')]
+            if len(parts) >= 2:
+                try:
+                    pid = int(parts[1])
+                except ValueError:
+                    continue
+                base = re.sub(r'\.exe$', '', parts[0].lower())
+                m.setdefault(base, []).append(pid)
+    except Exception as e:
+        log('tasklist map failed: %s' % e, 'WARN')
+    _CALM_CACHE['tasklist'] = m
+    _CALM_CACHE['ts'] = now
+    return m
+
+
+def top_cpu_pids(exclude=(), limit=3, budget=8.0, skip_names=()):
+    """PIDs with the highest recent CPU share.
+
+    Bounded by design: one cached tasklist + one counter sample, system
+    PIDs (0/4) and CALM_DENYLIST names skipped, bails out past budget."""
+    t0 = time.time()
     try:
         r = subprocess.run(['powershell', '-NoProfile', '-Command',
-                            "Get-Counter '\\Process(*)\\%% Processor Time' -SampleInterval 1 -MaxSamples 2 | "
+                            "Get-Counter '\\Process(*)\\% Processor Time' -SampleInterval 1 -MaxSamples 2 | "
                             "Select-Object -Expand CounterSamples | Group-Object InstanceName | "
                             "ForEach-Object { $s = $_.Group.CookedValue; if ($s.Count -gt 1) { $d = $s[1]-$s[0]; "
                             "if ($d -gt 0) { [pscustomobject]@{N=$_.Name; C=$d} } } } | "
                             "Sort-Object C -Descending | Select-Object -First 12 | "
                             "ForEach-Object { $_.N }"],
-                           capture_output=True, text=True, timeout=30)
+                           capture_output=True, text=True, timeout=10)
         names = [l.strip().lower() for l in r.stdout.splitlines() if l.strip()]
-        out = []
-        for n in names:
-            if n in ('idle', '_total'):
-                continue
-            try:
-                q = subprocess.run(['tasklist', '/fo', 'csv', '/nh'],
-                                   capture_output=True, text=True, timeout=15)
-                for line in q.stdout.splitlines():
-                    parts = [p.strip('"') for p in line.split('","')]
-                    if len(parts) >= 2 and parts[0].lower().startswith(n):
-                        try:
-                            pid = int(parts[1])
-                        except ValueError:
-                            continue
-                        if pid not in exclude and pid != os.getpid():
-                            out.append(pid)
-                        break
-            except Exception:
-                continue
-            if len(out) >= limit:
-                break
-        return out
     except Exception as e:
-        log('top_cpu_pids failed: %s' % e, 'WARN')
+        log('top_cpu_pids counter failed: %s' % e, 'WARN')
         return []
+    if time.time() - t0 > budget:
+        log('top_cpu_pids over budget, skipping', 'WARN')
+        return []
+    skip = set(s.lower() for s in skip_names)
+    pidmap = _tasklist_map()
+    me = os.getpid()
+    out = []
+    for n in names:
+        base = re.sub(r'#\d+$', '', n)
+        if base in ('idle', '_total', 'system') or base in CALM_DENYLIST or base in skip:
+            continue
+        for pid in pidmap.get(base, []):
+            if pid in (0, 4, me) or pid in exclude:
+                continue
+            out.append(pid)
+            break
+        if len(out) >= limit or time.time() - t0 > budget:
+            break
+    return out
+
+
+def _pid_alive(pid):
+    if not pid:
+        return False
+    h = _open(pid, PROCESS_QUERY_LIMITED)
+    if not h:
+        return False
+    kernel32.CloseHandle(h)
+    return True
 
 
 def apply_os_tweaks(cfg, adlx, profile_name, reason, state):
@@ -454,6 +508,13 @@ def apply_os_tweaks(cfg, adlx, profile_name, reason, state):
         return False
     fg_pid = _fg_pid()
     boosted = state.get('os_boosted_pid')
+    # Watchdog (v0.5 item, cheap so shipped early): a boosted PID that no
+    # longer exists is stale state — clear it so restore never targets a
+    # recycled PID.
+    if boosted and boosted != fg_pid and not _pid_alive(boosted):
+        log('   os: stale boosted pid %s cleared' % boosted)
+        boosted = None
+        state['os_boosted_pid'] = None
     # Debounce: only touch priorities when the foreground app actually changed.
     if oscfg.get('debounce', True) and fg_pid == boosted:
         return True
@@ -464,10 +525,16 @@ def apply_os_tweaks(cfg, adlx, profile_name, reason, state):
         else:
             notes.append('fg pid %s boost failed' % fg_pid)
         if boosted and boosted != fg_pid and oscfg.get('restore_previous', True):
-            set_priority(boosted, 0x20)  # NORMAL_PRIORITY_CLASS
+            if _pid_alive(boosted):
+                set_priority(boosted, 0x20)  # NORMAL_PRIORITY_CLASS
+            else:
+                notes.append('prev pid %s already gone, skip restore' % boosted)
     if oscfg.get('calm_background', True):
         try:
-            bg = top_cpu_pids(exclude={fg_pid} if fg_pid else set(), limit=2)
+            skip = set(oscfg.get('calm_exclude', []))
+            bg = top_cpu_pids(exclude={fg_pid} if fg_pid else set(), limit=2,
+                              budget=float(oscfg.get('calm_budget_seconds', 8.0)),
+                              skip_names=skip)
             for pid in bg:
                 if pid != boosted and set_efficiency_mode(pid, True):
                     notes.append('bg pid %s -> efficiency mode' % pid)
