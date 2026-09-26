@@ -49,5 +49,13 @@
     "call_profile": "eco",
     "idle_profile": "eco",
     "default_profile": "balanced"
+  },
+  "os_tuning": {
+    "_comment": "Generic OS layer: boost the focused process, calm loud background ones. No per-app lists.",
+    "enabled": true,
+    "debounce": true,
+    "boost_foreground": true,
+    "restore_previous": true,
+    "calm_background": false
   }
 }

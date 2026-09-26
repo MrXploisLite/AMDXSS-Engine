@@ -29,6 +29,10 @@ GPU telemetry (ADLX) ───────┘              └► Radeon Chill /
 - **Actuation**: the profile's scheme is activated with `powercfg /setactive`,
   and Radeon Chill / Frame Rate Target Control are set for the GPU. Every write
   is read back and logged; a failed readback is reported in the log.
+- **OS focus layer** (`os_tuning` in config): the focused process is boosted to
+  above-normal priority (debounced — only on foreground change, previous app
+  restored to normal), with optional efficiency-mode calming for the loudest
+  background processes by measured CPU share. Generic: no per-app lists.
 
 ## Requirements
 
@@ -77,7 +81,7 @@ Profiles:
 | `stock` | Windows Balanced | default |
 
 Tuning values live in `xss_config.json`; edit freely, the daemon re-reads it on
-restart.
+restart. Long-term plan: `docs/ROADMAP-LONG.md`.
 
 ## Files
 

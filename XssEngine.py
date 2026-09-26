@@ -331,12 +331,149 @@ def apply_profile(cfg, adlx, name, reason, state):
     ok_gpu, notes = adlx.apply_3d(prof)
     for n in notes:
         log('   gpu: %s' % n)
+    ok_os = apply_os_tweaks(cfg, adlx, name, reason, state)
     state['profile'] = name
     state['reason'] = reason
     state['scheme_ok'] = ok_scheme
     state['gpu_ok'] = ok_gpu
     save_state(state)
-    return ok_scheme or ok_gpu
+    return ok_scheme or ok_gpu or ok_os
+
+
+# ------------------------------------------------- OS-level focus tuning --
+# Generic layer: whatever is in the foreground gets a fair shot at the CPU
+# and GPU. No per-app lists: the engine boosts the focused process and calms
+# the loudest background ones, purely by measured CPU share. Works for
+# browsers, editors, renderers and games alike.
+PROCESS_QUERY_LIMITED = 0x1000
+PROCESS_SET_INFO = 0x0200
+ABOVE_NORMAL = 0x8000
+BELOW_NORMAL = 0x4000
+ECO_QOS_LEVEL = 1  # PROCESS_POWER_THROTTLING_EXECUTION_SPEED
+
+
+class PROCESS_POWER_THROTTLING_STATE(ctypes.Structure):
+    _fields_ = [('Version', ctypes.c_uint),
+                ('ControlMask', ctypes.c_uint),
+                ('StateMask', ctypes.c_uint)]
+
+
+def _fg_pid():
+    try:
+        hwnd = user32.GetForegroundWindow()
+        pid = ctypes.c_ulong()
+        user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+        return pid.value or None
+    except Exception:
+        return None
+
+
+def _open(pid, access):
+    try:
+        h = kernel32.OpenProcess(access, False, pid)
+        return h or None
+    except Exception:
+        return None
+
+
+def set_efficiency_mode(pid, enable):
+    """Toggle Windows efficiency (EcoQoS) mode for a process. Best effort."""
+    h = _open(pid, PROCESS_QUERY_LIMITED | PROCESS_SET_INFO)
+    if not h:
+        return False
+    try:
+        st = PROCESS_POWER_THROTTLING_STATE()
+        st.Version = 1
+        st.ControlMask = ECO_QOS_LEVEL
+        st.StateMask = ECO_QOS_LEVEL if enable else 0
+        return bool(kernel32.SetProcessInformation(h, 4, ctypes.byref(st), ctypes.sizeof(st)))
+    except Exception:
+        return False
+    finally:
+        kernel32.CloseHandle(h)
+
+
+def set_priority(pid, cls):
+    h = _open(pid, PROCESS_QUERY_LIMITED | PROCESS_SET_INFO)
+    if not h:
+        return False
+    try:
+        return bool(kernel32.SetPriorityClass(h, cls))
+    except Exception:
+        return False
+    finally:
+        kernel32.CloseHandle(h)
+
+
+def top_cpu_pids(exclude=(), limit=3):
+    """PIDs with the highest recent CPU share, via typeperf-free counters."""
+    try:
+        r = subprocess.run(['powershell', '-NoProfile', '-Command',
+                            "Get-Counter '\\Process(*)\\%% Processor Time' -SampleInterval 1 -MaxSamples 2 | "
+                            "Select-Object -Expand CounterSamples | Group-Object InstanceName | "
+                            "ForEach-Object { $s = $_.Group.CookedValue; if ($s.Count -gt 1) { $d = $s[1]-$s[0]; "
+                            "if ($d -gt 0) { [pscustomobject]@{N=$_.Name; C=$d} } } } | "
+                            "Sort-Object C -Descending | Select-Object -First 12 | "
+                            "ForEach-Object { $_.N }"],
+                           capture_output=True, text=True, timeout=30)
+        names = [l.strip().lower() for l in r.stdout.splitlines() if l.strip()]
+        out = []
+        for n in names:
+            if n in ('idle', '_total'):
+                continue
+            try:
+                q = subprocess.run(['tasklist', '/fo', 'csv', '/nh'],
+                                   capture_output=True, text=True, timeout=15)
+                for line in q.stdout.splitlines():
+                    parts = [p.strip('"') for p in line.split('","')]
+                    if len(parts) >= 2 and parts[0].lower().startswith(n):
+                        try:
+                            pid = int(parts[1])
+                        except ValueError:
+                            continue
+                        if pid not in exclude and pid != os.getpid():
+                            out.append(pid)
+                        break
+            except Exception:
+                continue
+            if len(out) >= limit:
+                break
+        return out
+    except Exception as e:
+        log('top_cpu_pids failed: %s' % e, 'WARN')
+        return []
+
+
+def apply_os_tweaks(cfg, adlx, profile_name, reason, state):
+    """Focus boost + background calm + optional debounce. Returns True if ran."""
+    oscfg = cfg.get('os_tuning', {})
+    if not oscfg.get('enabled', True):
+        return False
+    fg_pid = _fg_pid()
+    boosted = state.get('os_boosted_pid')
+    # Debounce: only touch priorities when the foreground app actually changed.
+    if oscfg.get('debounce', True) and fg_pid == boosted:
+        return True
+    notes = []
+    if fg_pid and oscfg.get('boost_foreground', True):
+        if set_priority(fg_pid, ABOVE_NORMAL):
+            notes.append('fg pid %s -> above-normal' % fg_pid)
+        else:
+            notes.append('fg pid %s boost failed' % fg_pid)
+        if boosted and boosted != fg_pid and oscfg.get('restore_previous', True):
+            set_priority(boosted, 0x20)  # NORMAL_PRIORITY_CLASS
+    if oscfg.get('calm_background', True):
+        try:
+            bg = top_cpu_pids(exclude={fg_pid} if fg_pid else set(), limit=2)
+            for pid in bg:
+                if pid != boosted and set_efficiency_mode(pid, True):
+                    notes.append('bg pid %s -> efficiency mode' % pid)
+        except Exception as e:
+            notes.append('calm failed: %s' % e)
+    state['os_boosted_pid'] = fg_pid
+    for n in notes:
+        log('   os: %s' % n)
+    return True
 
 
 # ------------------------------------------------------------------ MODES --

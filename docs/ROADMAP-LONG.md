@@ -1,0 +1,78 @@
+# AMDXSS Engine — Roadmap
+
+Goal: adaptive power and performance for everyday heavy workloads on AMD APUs
+(Ryzen 7 5700G + Vega iGPU reference machine) — browsers, editors, renderers,
+games — with three promises in order: **optimized, stable, power-efficient**.
+Generic layers first; per-game or per-app special cases only when the generic
+layer provably cannot cover them.
+
+## Where we are: v0.1 + OS layer (current)
+
+- [x] Power-scheme switching (Eco / Balanced / Performance) via powercfg,
+      idempotent setup, readback-verified.
+- [x] GPU telemetry + Radeon Chill / FRTC via ADLX (`amd-adlx`).
+- [x] Policy daemon: foreground-app rules, idle fallback, manual override,
+      hidden logon task, telemetry CSV.
+- [x] OS focus layer (new): foreground process boosted to above-normal
+      priority with debounce + restore; optional background calming via
+      efficiency mode (EcoQoS) for the loudest background PIDs by measured
+      CPU share. Off by default for calming (`calm_background: false`) until
+      measured safe.
+- [x] Repo public: AMDXSS-Engine (MIT), SECURITY.md, audit archive in docs/.
+
+## v0.2 — Measure the OS layer (next, small)
+
+1. Telemetry columns: add `profile`, `fg_pid_boosted`, `scheme_ok/gpu_ok/os_ok`
+   to the CSV so every poll is auditable.
+2. A/B test: 1-hour normal use with `os_tuning.enabled` true vs false.
+   Compare: foreground frame pacing (PresentMon, on demand), idle power
+   samples, switch counts in the log. Ship the numbers in docs/.
+3. Decide `calm_background` default from data, not guesswork. If any
+   background app (updaters, sync clients) misbehaves under EcoQoS, add an
+   exclusion list — still generic (by behavior class), never per-game.
+4. Harden `top_cpu_pids`: cache tasklist output, skip system PIDs, bound
+   runtime under 3 s.
+
+## v0.3 — Driver-global GPU layer (medium)
+
+Nothing per-game; everything at driver scope so all 3D apps benefit:
+
+1. Read current driver-global state via ADLX + registry: RSR, Radeon Image
+   Sharpening, Chill global, Enhanced Sync, power-gating flags.
+2. Profiles map to global GPU posture too (eco = Chill on + RSR available,
+   performance = Chill off + sharpening on) — applied once per profile
+   switch, with readback, logged.
+3. Document theRsp/RSR requirement (exclusive fullscreen + below-native
+   resolution) so users understand when it engages.
+4. Measure: GPU power samples per profile at idle + light 3D load.
+
+## v0.4 — CPU telemetry (medium, unlocks honesty)
+
+AMD Ryzen Master Monitoring SDK (public, read-only): PPT/TDC/EDC,
+temperature, voltage, effective frequency per core at 1 Hz. Add columns to
+CSV + `status`. This is what proves the eco claim (watts, not vibes) and
+detects throttling under sustained load (browser compiles, renders, games).
+
+## v0.5 — Stability proof (medium)
+
+1. Soak test: daemon running 7 days, zero crashes, zero stuck priorities
+   (watchdog: on every poll, verify the boosted PID still exists, else clear
+   state).
+2. Switch-count budget: debounce tuning so profile switches stay under ~10
+   per hour in normal use (log evidence).
+3. `stock` profile restores OS tweaks too (priorities back to normal,
+   efficiency mode cleared) — full reversibility test.
+
+## v1.0 — Done criteria (not a date)
+
+- One-command setup, one-command uninstall, both verified on a clean boot.
+- Docs prove all three promises with numbers: performance (no regression vs
+  stock), stability (soak + switch budget), power (watt samples per profile).
+- No per-game code paths unless a generic mechanism demonstrably fails for a
+  whole class of apps — and then the exception is documented with evidence.
+
+## v2.0 — Ideas only (do not start)
+
+Hardware power-limit control (PPT/TDC/EDC, Curve Optimizer) via the Ryzen
+Master driver path; render-resolution helpers; anything requiring kernel
+drivers or reboots. Parked until v1.0 criteria are met.
