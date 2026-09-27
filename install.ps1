@@ -95,6 +95,7 @@ if (-not $InPlace) {
         'xss_config.json',
         'xss.cmd',
         'xss-daemon.cmd',
+        'bench.py',
         'setup_schemes.ps1',
         'uninstall.ps1'
     )

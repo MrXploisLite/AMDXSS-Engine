@@ -110,10 +110,16 @@ no manual CSV digging.
   (7.860s, -2.2% faster) vs `eco` (7.976s).
 - [x] Zero performance regression proven; results recorded in `docs/PERF-EVIDENCE.md`.
 
-## v0.9 — Release polish (small)
+## v0.9 — Release polish (small) [x] DONE 2026-09-28
 
-README/docs final pass, v1.0 checklist review, version bump, GitHub release
-tag. Nothing new lands here — only proofreading and packaging.
+- [x] Version bump synchronized across codebase (`XssEngine.py`, `xss_config.json`,
+  `SECURITY.md`, `README.md`) to **v0.9.0**.
+- [x] Documentation & file inventory audit: verified zero hardcoding, clean open-source
+  instructions, `bench.py` and `install.ps1` documented.
+- [x] Security policy updated for 0.9.x / 1.0.x support.
+- [x] Live installed daemon in `C:\Program Files\AMDXSS` updated to v0.9.0 without
+  interrupting user sessions.
+- [x] Ready for final v1.0 release tagging.
 
 ## v1.0 — Done criteria (not a date)
 

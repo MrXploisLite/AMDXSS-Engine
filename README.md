@@ -136,6 +136,7 @@ rm_sdk.py           AMD Ryzen Master Monitoring SDK bridge (CPU telemetry)
 xss_config.json     profiles, rules, poll interval
 install.ps1         one-command master installer (dedicated or in-place)
 uninstall.ps1       clean uninstaller (task, schemes, PATH, files)
+bench.py            performance & no-regression benchmark runner (v0.8)
 setup_schemes.ps1   creates and verifies the power schemes (idempotent)
 install_task.ps1    task status & manual logon task installer
 xss.cmd             console launcher

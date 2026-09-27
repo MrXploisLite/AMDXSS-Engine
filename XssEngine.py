@@ -39,7 +39,7 @@ TELEMETRY_HEADER = ['ts', 'fg', 'idle_s', 'profile', 'fg_pid', 'scheme_ok', 'gpu
                     'cpu_temp_c', 'cpu_eff_mhz']
 MUTEX_NAME = 'Global\\AmdXssEngineDaemon'
 
-VERSION = '0.2.0'
+VERSION = '0.9.0'
 
 # ADLX is a pybind11 module; dropping its objects during interpreter shutdown can
 # segfault. Keep references alive for the process lifetime and exit via os._exit().

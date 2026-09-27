@@ -1,6 +1,6 @@
 {
   "engine_name": "AMD XSS Engine",
-  "version": "0.1.0",
+  "version": "0.9.0",
   "poll_seconds": 5,
   "idle_to_eco_minutes": 0,
   "min_switch_interval_seconds": 30,
