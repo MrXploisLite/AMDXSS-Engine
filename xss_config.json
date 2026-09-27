@@ -32,7 +32,7 @@
     },
     "stock": {
       "scheme": "Balanced",
-      "chill": { "enabled": true, "min": 75, "max": 140 },
+      "chill": { "enabled": false, "min": 75, "max": 140 },
       "frtc":  { "enabled": false, "fps": 60 },
       "sharpening": { "enabled": false },
       "antilag": { "enabled": false },

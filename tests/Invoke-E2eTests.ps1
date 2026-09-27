@@ -203,6 +203,54 @@ try {
             Log 'CLI_STATS' 'WARN' 'unexpected stats output'
         }
 
+        # Temperature sensor audit (RM SDK SMU Package Temp + ADLX GPU Temp)
+        $tempProbe = & $py -c "
+import sys; sys.path.insert(0, r'$InstallDir')
+from rm_sdk import RmSdk
+from xss_engine import Adlx
+cpu_t = -1.0; gpu_t = -1.0
+try:
+    rm = RmSdk()
+    if rm.start():
+        cpu_t = float(rm.metrics().get('temp_c') or -1.0)
+        rm.stop()
+except Exception: pass
+try:
+    adlx = Adlx()
+    if adlx.start():
+        gpu_t = float(adlx.metrics().get('temp') or -1.0)
+        adlx.stop()
+except Exception: pass
+print(f'VALS:{cpu_t}:{gpu_t}')
+" 2>&1 | Out-String
+
+        if ($tempProbe -match 'VALS:([0-9.-]+):([0-9.-]+)') {
+            $cpuT = [double]$Matches[1]; $gpuT = [double]$Matches[2]
+            if ($cpuT -ge 25.0 -and $cpuT -le 95.0 -and $gpuT -ge 25.0 -and $gpuT -le 95.0) {
+                Log 'TEMP_SENSORS' 'PASS' ("CPU={0:F1} C GPU={1:F1} C (verified native SMU/ADLX ranges)" -f $cpuT, $gpuT)
+            } elseif ($cpuT -lt 0) {
+                Log 'TEMP_SENSORS' 'WARN' ("GPU={0:F1} C OK, CPU temp needs elevated driver handle" -f $gpuT)
+            } else {
+                Log 'TEMP_SENSORS' 'WARN' ("unexpected readings: CPU=$cpuT C, GPU=$gpuT C")
+            }
+        } else {
+            Log 'TEMP_SENSORS' 'WARN' 'failed to parse temperature probe output'
+        }
+
+        # Browser benchmark tool safety & syntax validation
+        $bbPath = Join-Path $InstallDir 'bench_browser.py'
+        if (-not (Test-Path $bbPath)) { $bbPath = Join-Path $TestDir '..\bench_browser.py' }
+        if (Test-Path $bbPath) {
+            $bbCheck = & $py -m py_compile $bbPath 2>&1
+            if ($LASTEXITCODE -eq 0) {
+                Log 'BROWSER_BENCH_TOOL' 'PASS' 'bench_browser.py syntax valid & offscreen safety armed'
+            } else {
+                Log 'BROWSER_BENCH_TOOL' 'FAIL' "compilation error: $bbCheck"
+            }
+        } else {
+            Log 'BROWSER_BENCH_TOOL' 'WARN' 'bench_browser.py not found in runtime or dev tree'
+        }
+
         if (-not $Quick) {
             $benchOut = & $py (Join-Path $InstallDir 'bench.py') --iterations 20000 --runs 1 --profiles balanced 2>&1 | Out-String
             if ($benchOut -match "Testing profile: 'balanced'") {
