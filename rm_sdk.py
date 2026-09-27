@@ -202,26 +202,31 @@ class RmSdk:
             ret = fn(self._cpu, ctypes.byref(st))
             if ret != 0:
                 return None
+            def r2(x):
+                try:
+                    return round(float(x), 2)
+                except (TypeError, ValueError):
+                    return x
             n = st.stFreqData.uLength
             cores = []
             for i in range(min(n, 16)):
                 cores.append({
-                    'mhz': st.stFreqData.dCurrentFreq[i] if st.stFreqData.dCurrentFreq else None,
-                    'eff_mhz': st.stFreqData.dFreq[i] if st.stFreqData.dFreq else None,
-                    'c0': st.stFreqData.dState[i] if st.stFreqData.dState else None,
-                    'temp': st.stFreqData.dCurrentTemp[i] if st.stFreqData.dCurrentTemp else None,
+                    'mhz': r2(st.stFreqData.dCurrentFreq[i]) if st.stFreqData.dCurrentFreq else None,
+                    'eff_mhz': r2(st.stFreqData.dFreq[i]) if st.stFreqData.dFreq else None,
+                    'c0': r2(st.stFreqData.dState[i]) if st.stFreqData.dState else None,
+                    'temp': r2(st.stFreqData.dCurrentTemp[i]) if st.stFreqData.dCurrentTemp else None,
                 })
             return {
-                'ppt_limit_w': st.fPPTLimit, 'ppt_w': st.fPPTValue,
-                'edc_vdd_limit_a': st.fEDCLimit_VDD, 'edc_vdd_a': st.fEDCValue_VDD,
-                'tdc_vdd_limit_a': st.fTDCLimit_VDD, 'tdc_vdd_a': st.fTDCValue_VDD,
-                'edc_soc_limit_a': st.fEDCLimit_SOC, 'edc_soc_a': st.fEDCValue_SOC,
-                'tdc_soc_limit_a': st.fTDCLimit_SOC, 'tdc_soc_a': st.fTDCValue_SOC,
-                'vddcr_vdd_w': st.fVDDCR_VDD_Power, 'vddcr_soc_w': st.fVDDCR_SOC_Power,
-                'vdd_v': st.dAvgCoreVoltage, 'soc_v': st.dSocVoltage,
-                'temp_c': st.dTemperature, 'chtclimit_c': st.fcHTCLimit,
-                'fmax_mhz': st.fCCLK_Fmax, 'peak_speed_mhz': st.dPeakSpeed,
-                'fclk_mhz': st.fFCLKP0Freq, 'cores': cores,
+                'ppt_limit_w': r2(st.fPPTLimit), 'ppt_w': r2(st.fPPTValue),
+                'edc_vdd_limit_a': r2(st.fEDCLimit_VDD), 'edc_vdd_a': r2(st.fEDCValue_VDD),
+                'tdc_vdd_limit_a': r2(st.fTDCLimit_VDD), 'tdc_vdd_a': r2(st.fTDCValue_VDD),
+                'edc_soc_limit_a': r2(st.fEDCLimit_SOC), 'edc_soc_a': r2(st.fEDCValue_SOC),
+                'tdc_soc_limit_a': r2(st.fTDCLimit_SOC), 'tdc_soc_a': r2(st.fTDCValue_SOC),
+                'vddcr_vdd_w': r2(st.fVDDCR_VDD_Power), 'vddcr_soc_w': r2(st.fVDDCR_SOC_Power),
+                'vdd_v': r2(st.dAvgCoreVoltage), 'soc_v': r2(st.dSocVoltage),
+                'temp_c': r2(st.dTemperature), 'chtclimit_c': r2(st.fcHTCLimit),
+                'fmax_mhz': r2(st.fCCLK_Fmax), 'peak_speed_mhz': r2(st.dPeakSpeed),
+                'fclk_mhz': r2(st.fFCLKP0Freq), 'cores': cores,
             }
         except Exception:
             return None
