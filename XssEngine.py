@@ -875,6 +875,29 @@ def cmd_stats(cfg, hours=24):
     if gpup:
         print('GPU   : power avg %.1fW | temp avg %.1fC' % (
             sum(gpup) / len(gpup), sum(gput) / len(gput) if gput else 0))
+    # v0.6: per-profile power evidence — what proves "eco saves watts".
+    print('--- per profile ---')
+    idx = {'ppt': 13, 'temp': 17, 'eff': 18}
+    for p in sorted(profiles):
+        sub = [r for r in rows if (r[3] if len(r) > 3 else '?') == p]
+        cells = {}
+        for k, i in idx.items():
+            vals = []
+            for r in sub:
+                if len(r) > i and r[i] not in ('', 'None'):
+                    try:
+                        vals.append(float(r[i]))
+                    except ValueError:
+                        pass
+            cells[k] = vals
+        if cells['ppt']:
+            print('%-10s n=%-5d PPT avg %5.1fW max %5.1fW | temp avg %4.1fC max %4.1fC | eff avg %4.0fMHz' % (
+                p, len(sub), sum(cells['ppt']) / len(cells['ppt']), max(cells['ppt']),
+                sum(cells['temp']) / len(cells['temp']) if cells['temp'] else 0,
+                max(cells['temp']) if cells['temp'] else 0,
+                sum(cells['eff']) / len(cells['eff']) if cells['eff'] else 0))
+        else:
+            print('%-10s n=%-5d (no CPU samples)' % (p, len(sub)))
     return 0
 
 

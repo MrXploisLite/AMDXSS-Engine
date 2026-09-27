@@ -80,6 +80,30 @@ detects throttling under sustained load (browser compiles, renders, games).
 4. [ ] Soak: 7 days zero crashes — running since 2026-09-27; verdict = run
    `stats 168` and check the engine log for restarts.
 
+## v0.6 — Power evidence per profile (small) [x] DONE 2026-09-27
+
+`stats` gains a per-profile breakdown: PPT avg/max, temp avg/max, eff avg for
+each of eco/balanced/performance/stock. First real numbers (24 h window):
+**eco PPT avg 7.1W vs balanced 13.8W** — the eco claim in watts, one command,
+no manual CSV digging.
+
+## v0.7 — One-command setup + uninstall (medium)
+
+`install_task.ps1` + `setup_schemes.ps1` verified end-to-end from a clean
+state; new `uninstall.ps1` removes the task, the schemes and the state (logs
+kept), verified by a reinstall round-trip. Both documented in README.
+
+## v0.8 — No-regression proof (medium)
+
+Performance evidence under a fixed synthetic CPU load, engine on (performance)
+vs `stock`: completion time must not regress, with avg PPT recorded alongside.
+Numbers shipped in `docs/PERF-EVIDENCE.md`.
+
+## v0.9 — Release polish (small)
+
+README/docs final pass, v1.0 checklist review, version bump, GitHub release
+tag. Nothing new lands here — only proofreading and packaging.
+
 ## v1.0 — Done criteria (not a date)
 
 - One-command setup, one-command uninstall, both verified on a clean boot.
