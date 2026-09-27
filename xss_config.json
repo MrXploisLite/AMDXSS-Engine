@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "poll_seconds": 5,
   "idle_to_eco_minutes": 0,
+  "min_switch_interval_seconds": 30,
   "_idle_to_eco_note": "0 disables the idle rule. Set e.g. 10 to fall back to eco after N minutes without user input.",
   "profiles": {
     "eco": {

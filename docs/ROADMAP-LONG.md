@@ -67,15 +67,18 @@ detects throttling under sustained load (browser compiles, renders, games).
 - [x] Validated against AMD's own sample app: PPT/TDC/EDC limits and values,
   VDDCR rails, per-core freq/C0/temp all match. CSV gains 6 CPU columns.
 
-## v0.5 — Stability proof (medium)
+## v0.5 — Stability proof (medium) [x] mechanisms DONE 2026-09-27, soak running
 
-1. Soak test: daemon running 7 days, zero crashes, zero stuck priorities
-   (watchdog: on every poll, verify the boosted PID still exists, else clear
-   state).
-2. Switch-count budget: debounce tuning so profile switches stay under ~10
-   per hour in normal use (log evidence).
-3. `stock` profile restores OS tweaks too (priorities back to normal,
-   efficiency mode cleared) — full reversibility test.
+1. [x] Watchdog (shipped early with the harden pass): stale boosted PIDs are
+   cleared every poll, restore skips dead processes.
+2. [x] Switch-count budget: automatic switches rate-limited to one per
+   `min_switch_interval_seconds` (default 30; override bypasses). Evidence
+   tool: `XssEngine.py stats [hours]` — switch rate with the <= 10/h budget,
+   profile share, CPU/GPU power and thermal averages.
+3. [x] `stock` restores OS tweaks too (priorities back to normal, efficiency
+   mode cleared on every tracked pid); daemon shutdown releases everything.
+4. [ ] Soak: 7 days zero crashes — running since 2026-09-27; verdict = run
+   `stats 168` and check the engine log for restarts.
 
 ## v1.0 — Done criteria (not a date)
 

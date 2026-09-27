@@ -74,6 +74,7 @@ powershell -ExecutionPolicy Bypass -File .\install_task.ps1 -Start
 .\xss.cmd set eco             # switch to eco once (the daemon may switch again on next poll)
 echo balanced > state\override.txt  # pin a profile until the file changes (delete the file to release)
 .\xss.cmd telemetry 30        # sample metrics for 30 s into logs/xss-telemetry.csv
+.\xss.cmd stats 24           # switch rate + profile share + power/thermal averages
 .\xss.cmd probe               # what the ADLX driver exposes on this GPU
 .\xss-daemon.cmd              # run the policy loop in the foreground (debug)
 
@@ -92,7 +93,10 @@ Profiles:
 | `stock` | Windows Balanced | default |
 
 Tuning values live in `xss_config.json`; edit freely, the daemon re-reads it on
-restart. Long-term plan: `docs/ROADMAP-LONG.md`.
+restart. Automatic profile switches are rate-limited
+(`min_switch_interval_seconds`, default 30 s; manual override bypasses it), and
+`stock` also undoes every OS focus tweak (priorities back to normal, efficiency
+mode off). Long-term plan: `docs/ROADMAP-LONG.md`.
 
 ## Files
 

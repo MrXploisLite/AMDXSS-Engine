@@ -377,7 +377,11 @@ def apply_profile(cfg, adlx, name, reason, state):
     ok_gpu, notes = adlx.apply_3d(prof)
     for n in notes:
         log('   gpu: %s' % n)
-    ok_os = apply_os_tweaks(cfg, adlx, name, reason, state)
+    ok_os = False
+    if name == 'stock':
+        ok_os = os_release(state)   # stock also undoes every OS tweak
+    else:
+        ok_os = apply_os_tweaks(cfg, adlx, name, reason, state)
     state['profile'] = name
     state['reason'] = reason
     state['scheme_ok'] = ok_scheme
@@ -582,11 +586,35 @@ def apply_os_tweaks(cfg, adlx, profile_name, reason, state):
             for pid in bg:
                 if pid != boosted and set_efficiency_mode(pid, True):
                     notes.append('bg pid %s -> efficiency mode' % pid)
+                    seen = state.setdefault('os_calm_pids', [])
+                    if pid not in seen:
+                        seen.append(pid)
+                        del seen[:-8]   # keep the list bounded
         except Exception as e:
             notes.append('calm failed: %s' % e)
     state['os_boosted_pid'] = fg_pid
     for n in notes:
         log('   os: %s' % n)
+    return True
+
+
+def os_release(state):
+    """Undo every OS tweak the engine made: priorities back to normal,
+    efficiency mode off. Used by the stock profile and daemon shutdown."""
+    notes = []
+    boosted = state.get('os_boosted_pid')
+    if boosted:
+        if _pid_alive(boosted):
+            set_priority(boosted, 0x20)   # NORMAL_PRIORITY_CLASS
+            notes.append('pid %s priority -> normal' % boosted)
+        state['os_boosted_pid'] = None
+    for pid in list(state.get('os_calm_pids') or []):
+        if _pid_alive(pid) and set_efficiency_mode(pid, False):
+            notes.append('pid %s efficiency mode -> off' % pid)
+    state['os_calm_pids'] = []
+    save_state(state)
+    for n in notes:
+        log('   os-release: %s' % n)
     return True
 
 
@@ -724,6 +752,7 @@ def cmd_daemon(cfg, max_seconds=0):
     new = not os.path.exists(TELEMETRY_CSV)
     t0 = time.time()
     last_verify = time.time()
+    last_switch = 0.0
     try:
         while True:
             if max_seconds and (time.time() - t0) >= max_seconds:
@@ -732,8 +761,14 @@ def cmd_daemon(cfg, max_seconds=0):
             idle_s = idle_seconds()
             want, reason = decide(cfg, fg, idle_s)
             if want != current:
-                apply_profile(cfg, a, want, reason, state)
-                current = want
+                # Dwell guard: automatic switches are rate-limited so the log
+                # never flaps. Manual override always wins immediately.
+                now_ts = time.time()
+                dwell = float(cfg.get('min_switch_interval_seconds', 30))
+                if read_override(cfg) or (now_ts - last_switch) >= dwell:
+                    apply_profile(cfg, a, want, reason, state)
+                    current = want
+                    last_switch = now_ts
             elif time.time() - last_verify > 1800:   # re-apply every 30 min against drift
                 apply_profile(cfg, a, want, 're-verify', state)
                 last_verify = time.time()
@@ -773,8 +808,73 @@ def cmd_daemon(cfg, max_seconds=0):
     except KeyboardInterrupt:
         log('daemon stopped (Ctrl+C)')
     finally:
+        try:
+            os_release(state)   # leave the OS as we found it
+        except Exception:
+            pass
         a.stop()
     log('daemon exit')
+    return 0
+
+
+def cmd_stats(cfg, hours=24):
+    """Switch rate + profile share + power/thermal averages from the CSV.
+    This is the soak-test instrument: the budget is <= 10 switches/hour."""
+    if not os.path.exists(TELEMETRY_CSV):
+        print('no telemetry yet')
+        return 1
+    cutoff = dt.datetime.now() - dt.timedelta(hours=hours)
+    rows = []
+    with open(TELEMETRY_CSV, newline='', encoding='utf-8') as f:
+        for rec in csv.reader(f):
+            if len(rec) < 12 or rec[0].startswith('---') or rec[0] == 'ts':
+                continue
+            try:
+                ts = dt.datetime.strptime(rec[0], '%Y-%m-%d %H:%M:%S')
+            except ValueError:
+                continue
+            if ts >= cutoff:
+                rows.append(rec)
+    if not rows:
+        print('no rows in the last %d h' % hours)
+        return 0
+
+    def col(i):
+        out = []
+        for r in rows:
+            if len(r) > i and r[i] not in ('', 'None'):
+                try:
+                    out.append(float(r[i]))
+                except ValueError:
+                    pass
+        return out
+
+    profiles = {}
+    switches = 0
+    prev = None
+    for r in rows:
+        p = r[3] if len(r) > 3 else '?'
+        profiles[p] = profiles.get(p, 0) + 1
+        if prev is not None and p != prev:
+            switches += 1
+        prev = p
+    span_h = max((dt.datetime.strptime(rows[-1][0], '%Y-%m-%d %H:%M:%S') -
+                  dt.datetime.strptime(rows[0][0], '%Y-%m-%d %H:%M:%S')).total_seconds() / 3600.0, 0.01)
+    ppt, cput, eff = col(13), col(17), col(18)
+    gpup, gput = col(11), col(10)
+    print('=== AMD XSS Engine stats (last %dh) ===' % hours)
+    print('rows %d | span %.1f h | %s .. %s' % (len(rows), span_h, rows[0][0], rows[-1][0]))
+    print('switches: %d (%.1f/h)   budget <= 10/h' % (switches, switches / span_h))
+    print('profiles: ' + ' | '.join(
+        '%s %.0f%%' % (p, 100.0 * n / len(rows)) for p, n in sorted(profiles.items(), key=lambda x: -x[1])))
+    if ppt:
+        print('CPU   : PPT avg %.1fW max %.1fW | temp avg %.1fC max %.1fC | eff avg %.0fMHz' % (
+            sum(ppt) / len(ppt), max(ppt),
+            sum(cput) / len(cput) if cput else 0, max(cput) if cput else 0,
+            sum(eff) / len(eff) if eff else 0))
+    if gpup:
+        print('GPU   : power avg %.1fW | temp avg %.1fC' % (
+            sum(gpup) / len(gpup), sum(gput) / len(gput) if gput else 0))
     return 0
 
 
@@ -789,6 +889,9 @@ def _run():
     if mode == 'telemetry':
         secs = int(args[1]) if len(args) > 1 else 20
         return cmd_telemetry(cfg, secs)
+    if mode == 'stats':
+        hrs = int(args[1]) if len(args) > 1 and args[1].isdigit() else 24
+        return cmd_stats(cfg, hrs)
     if mode == 'set':
         if len(args) < 2 or args[1].lower() not in cfg['profiles']:
             print('usage: XssEngine.py set <%s>' % '|'.join(cfg['profiles']))
@@ -798,9 +901,10 @@ def _run():
         maxsec = int(args[1]) if len(args) > 1 and args[1].isdigit() else 0
         return cmd_daemon(cfg, maxsec)
     print('AMD XSS Engine v%s\n'
-          '  status             show active scheme, GPU and last state\n'
+          '  status             show active scheme, GPU/CPU and last state\n'
           '  probe              ADLX support matrix\n'
           '  telemetry [secs]   sample metrics into logs/xss-telemetry.csv\n'
+          '  stats [hours]      switch rate + power/thermal summary (default 24)\n'
           '  set <profile>      %s\n'
           '  daemon [secs]      policy loop (started by the logon task)\n' %
           (VERSION, '|'.join(cfg['profiles'])))
