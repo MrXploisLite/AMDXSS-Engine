@@ -45,7 +45,8 @@
       "cs2.exe",
       "VALORANT.exe",
       "FortniteClient-Win64-Shipping.exe",
-      "javaw.exe"
+      "javaw.exe",
+      "RobloxPlayerBeta.exe"
     ],
     "_games_note": "Add the executables of your own games here (case-insensitive, * wildcards allowed).",
     "calls": [
