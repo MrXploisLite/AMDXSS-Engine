@@ -282,6 +282,42 @@ class Adlx:
         except Exception as e:
             okall = False
             notes.append('FRTC error: %s' % e)
+        # Driver-global posture (v0.3): sharpening / anti-lag / enhanced sync.
+        # RSR intentionally excluded — unsupported on this iGPU (see probe).
+        # Each key optional in profile; absent = leave untouched.
+        for key, getter in (('sharpening', 'GetImageSharpening'),
+                            ('antilag', 'GetAntiLag'),
+                            ('enhanced_sync', 'GetEnhancedSync')):
+            if key not in prof:
+                continue
+            try:
+                o = getattr(self.s3, getter)(self.gpu)
+                if not o or not o.IsSupported():
+                    notes.append('%s not supported, skipped' % key)
+                    continue
+                want = prof[key]
+                if bool(o.IsEnabled()) != bool(want['enabled']):
+                    o.SetEnabled(bool(want['enabled']))
+                if want['enabled'] and 'sharpness' in want and hasattr(o, 'SetSharpness'):
+                    lo = o.GetSharpnessRange()['minValue']
+                    hi = o.GetSharpnessRange()['maxValue']
+                    step = o.GetSharpnessRange().get('step', 1) or 1
+                    v = max(lo, min(int(want['sharpness']), hi))
+                    v = lo + round((v - lo) / step) * step
+                    o.SetSharpness(v)
+                st = o.IsEnabled()
+                detail = ''
+                if want['enabled'] and hasattr(o, 'GetSharpness'):
+                    try:
+                        detail = ' sharpness=%s' % o.GetSharpness()
+                    except Exception:
+                        pass
+                notes.append('%s=%s%s (readback %s)' % (key, want['enabled'], detail, st))
+                if bool(st) != bool(want['enabled']):
+                    okall = False
+            except Exception as e:
+                okall = False
+                notes.append('%s error: %s' % (key, e))
         return okall, notes
 
     def stop(self):

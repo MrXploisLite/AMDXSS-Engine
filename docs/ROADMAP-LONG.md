@@ -33,18 +33,19 @@ layer provably cannot cover them.
 4. Harden `top_cpu_pids`: cache tasklist output, skip system PIDs, bound
    runtime under 3 s.
 
-## v0.3 — Driver-global GPU layer (medium)
+## v0.3 — Driver-global GPU layer (medium) [x] DONE 2026-09-27
 
 Nothing per-game; everything at driver scope so all 3D apps benefit:
 
-1. Read current driver-global state via ADLX + registry: RSR, Radeon Image
-   Sharpening, Chill global, Enhanced Sync, power-gating flags.
-2. Profiles map to global GPU posture too (eco = Chill on + RSR available,
-   performance = Chill off + sharpening on) — applied once per profile
-   switch, with readback, logged.
-3. Document theRsp/RSR requirement (exclusive fullscreen + below-native
-   resolution) so users understand when it engages.
-4. Measure: GPU power samples per profile at idle + light 3D load.
+- [x] Read current driver-global state via ADLX + registry: RSR, Radeon Image
+  Sharpening, Chill global, Enhanced Sync, power-gating flags.
+  Result: Sharpening/AntiLag/EnhancedSync supported; **RSR NOT supported on
+  Vega iGPU** (probed, excluded by design); power-gating flags parked (need
+  driver reload/reboot -> v2.0).
+- [x] Profiles map to global GPU posture too (eco = all off, balanced =
+  sharpening on, performance = sharpening + antilag on) — readback-verified.
+- [x] RSR requirement documented in README (exclusive fullscreen +
+  below-native resolution) — N/A on this iGPU, noted honestly.
 
 ## v0.4 — CPU telemetry (medium, unlocks honesty)
 

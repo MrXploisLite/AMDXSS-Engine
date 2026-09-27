@@ -33,6 +33,9 @@ GPU telemetry (ADLX) ───────┘              └► Radeon Chill /
   above-normal priority (debounced — only on foreground change, previous app
   restored to normal), with optional efficiency-mode calming for the loudest
   background processes by measured CPU share. Generic: no per-app lists.
+- **Driver-global GPU posture** (per profile): Radeon Image Sharpening,
+  Anti-Lag and Enhanced Sync toggled via ADLX with readback. RSR is not
+  exposed on Vega-class iGPUs, so the engine does not pretend to manage it.
 
 ## Requirements
 

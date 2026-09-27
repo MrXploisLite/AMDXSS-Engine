@@ -8,22 +8,34 @@
     "eco": {
       "scheme": "AMD Engine - Eco",
       "chill": { "enabled": true, "min": 30, "max": 60 },
-      "frtc":  { "enabled": false, "fps": 60 }
+      "frtc":  { "enabled": false, "fps": 60 },
+      "sharpening": { "enabled": false },
+      "antilag": { "enabled": false },
+      "enhanced_sync": { "enabled": false }
     },
     "balanced": {
       "scheme": "AMD Engine - Balanced",
       "chill": { "enabled": true, "min": 60, "max": 120 },
-      "frtc":  { "enabled": false, "fps": 60 }
+      "frtc":  { "enabled": false, "fps": 60 },
+      "sharpening": { "enabled": true, "sharpness": 80 },
+      "antilag": { "enabled": false },
+      "enhanced_sync": { "enabled": false }
     },
     "performance": {
       "scheme": "AMD Engine - Performance",
       "chill": { "enabled": false, "min": 75, "max": 140 },
-      "frtc":  { "enabled": false, "fps": 60 }
+      "frtc":  { "enabled": false, "fps": 60 },
+      "sharpening": { "enabled": true, "sharpness": 80 },
+      "antilag": { "enabled": true },
+      "enhanced_sync": { "enabled": false }
     },
     "stock": {
       "scheme": "Balanced",
       "chill": { "enabled": true, "min": 75, "max": 140 },
-      "frtc":  { "enabled": false, "fps": 60 }
+      "frtc":  { "enabled": false, "fps": 60 },
+      "sharpening": { "enabled": false },
+      "antilag": { "enabled": false },
+      "enhanced_sync": { "enabled": false }
     }
   },
   "rules": {
