@@ -92,20 +92,52 @@ Profiles:
 | `performance` | AMD Engine - Performance (min 10%) | off |
 | `stock` | Windows Balanced | default |
 
-Tuning values live in `xss_config.json`; edit freely, the daemon re-reads it on
-restart. Automatic profile switches are rate-limited
-(`min_switch_interval_seconds`, default 30 s; manual override bypasses it), and
-`stock` also undoes every OS focus tweak (priorities back to normal, efficiency
-mode off). Long-term plan: `docs/ROADMAP-LONG.md`.
+## What the engine does (in 30s)
+
+The daemon monitors your active window. When it detects a call or game, it
+switches to an eco or performance profile that changes power plans and driver
+settings. Everything is reversible via `stock`, manual override, or uninstall.
+
+Automatic switches are rate-limited by default (`min_switch_interval_seconds`
+= 30 s); override file can pin a profile until deleted. OS tweaks (boosted
+foreground priority, optional background calming) apply on every poll and
+undo cleanly on shutdown or when you switch back.
+
+---
+
+## Quick start (CLI, no manual steps)
+
+Run from **PowerShell elevated (Run as Administrator)**:
+
+```powershell
+# 1) One-command install: copies to C:\Program Files\AMDXSS, sets up power schemes,
+#    registers the logon task with highest privileges, adds to PATH, and starts the daemon:
+.\install.ps1
+
+# Or portable / developer mode (runs in-place from the repo directory, no files copied):
+.\install.ps1 -InPlace
+
+# 2) Verify it's running and check stats (works from any shell since it's on PATH):
+xss status
+xss stats 24                  # switch rate + profile share + per-profile power (v0.6)
+
+# 3) Clean uninstall whenever needed:
+.\uninstall.ps1 -RemoveFiles  # stops daemon, deletes task, restores Balanced, deletes custom schemes
+```
+
+The engine will automatically switch profiles based on your active application
+(call, game, idle, default). See `xss_config.json` for the rule table.
 
 ## Files
 
 ```
 XssEngine.py        daemon, CLI, policy, ADLX wrapper
-rm_sdk.py           optional AMD Ryzen Master Monitoring SDK bridge (CPU telemetry)
+rm_sdk.py           AMD Ryzen Master Monitoring SDK bridge (CPU telemetry)
 xss_config.json     profiles, rules, poll interval
-setup_schemes.ps1   creates the power schemes (idempotent)
-install_task.ps1    logon task install/status/uninstall
+install.ps1         one-command master installer (dedicated or in-place)
+uninstall.ps1       clean uninstaller (task, schemes, PATH, files)
+setup_schemes.ps1   creates and verifies the power schemes (idempotent)
+install_task.ps1    task status & manual logon task installer
 xss.cmd             console launcher
 xss-daemon.cmd      hidden daemon launcher
 logs/               engine logs + telemetry CSV (not tracked)

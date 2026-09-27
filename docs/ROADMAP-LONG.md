@@ -87,11 +87,18 @@ each of eco/balanced/performance/stock. First real numbers (24 h window):
 **eco PPT avg 7.1W vs balanced 13.8W** — the eco claim in watts, one command,
 no manual CSV digging.
 
-## v0.7 — One-command setup + uninstall (medium)
+## v0.7 — One-command setup + uninstall (medium) [x] DONE 2026-09-28
 
-`install_task.ps1` + `setup_schemes.ps1` verified end-to-end from a clean
-state; new `uninstall.ps1` removes the task, the schemes and the state (logs
-kept), verified by a reinstall round-trip. Both documented in README.
+- [x] Dedicated master installer `install.ps1`: copies files to standard
+  `$env:ProgramFiles\AMDXSS`, dynamically discovers Python (py.exe launcher,
+  PATH, Registry, LocalAppData), idempotently sets up schemes, registers
+  the logon task with highest privileges, adds to System PATH, and starts daemon.
+- [x] Portable mode supported via `install.ps1 -InPlace` (runs directly in repo).
+- [x] Clean uninstaller `uninstall.ps1`: stops daemon, removes scheduled task,
+  restores default `SCHEME_BALANCED`, deletes custom schemes, cleans PATH, and
+  removes installation files (`-RemoveFiles`).
+- [x] Verified by full round-trip testing: install -> verify -> uninstall ->
+  clean baseline -> reinstall -> active daemon running.
 
 ## v0.8 — No-regression proof (medium)
 

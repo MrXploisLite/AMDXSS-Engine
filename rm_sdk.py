@@ -30,8 +30,8 @@ LOAD_WITH_ALTERED_SEARCH_PATH = 0x00000008
 
 SDK_REGISTRY = r'Software\AMD\RyzenMasterMonitoringSDK'
 SDK_FALLBACK_DIRS = [
-    r'C:\Program Files\AMD\RyzenMasterMonitoringSDK',
-    r'C:\Program Files (x86)\AMD\RyzenMasterMonitoringSDK',
+    os.path.join(os.environ.get('ProgramFiles', r'C:\Program Files'), 'AMD', 'RyzenMasterMonitoringSDK'),
+    os.path.join(os.environ.get('ProgramFiles(x86)', r'C:\Program Files (x86)'), 'AMD', 'RyzenMasterMonitoringSDK'),
 ]
 
 # vtable slot maps for the two possible MSVC destructor placements.

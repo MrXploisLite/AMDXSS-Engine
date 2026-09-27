@@ -8,12 +8,12 @@
 #
 # Run from an elevated PowerShell. Optionally pass -Python <path to pythonw.exe>
 # when Python is not on PATH.
-param(
-    [switch]$Uninstall,
-    [switch]$Start,
-    [switch]$Status,
-    [string]$Python = ''
-)
+#
+#   .\install_task.ps1 [-Start]          install + start now
+#   .\install_task.ps1 -Status           show task state and running daemon
+#   .\uninstall.ps1                      remove task, schemes and daemon
+
+param([switch]$Start, [switch]$Status, [string]$Python = '')
 
 $TaskName = 'AMD XSS Engine'
 $Dir = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -23,31 +23,46 @@ function Resolve-Python {
         if (-not (Test-Path $Python)) { throw "Python path not found: $Python" }
         return $Python
     }
-    foreach ($name in @('pythonw.exe', 'python.exe')) {
-        $cmd = Get-Command $name -ErrorAction SilentlyContinue
-        if ($cmd) { return $cmd.Source }
+    # 1. Check official Python Launcher for Windows (py.exe)
+    $pyLauncher = Get-Command 'py.exe' -ErrorAction SilentlyContinue
+    if ($pyLauncher) {
+        $pyPath = & py.exe -3 -c "import sys; print(sys.executable)" 2>$null
+        if ($pyPath -and (Test-Path $pyPath)) {
+            $w = Join-Path (Split-Path $pyPath) 'pythonw.exe'
+            if (Test-Path $w) { return $w }
+            return $pyPath
+        }
     }
-    throw 'Python not found on PATH. Install Python 3.10+ or pass -Python <path to pythonw.exe>.'
+    # 2. Check standard user local python installs (dynamic, no hardcoded username)
+    $localPy = Join-Path $env:LOCALAPPDATA 'Programs\Python'
+    if (Test-Path $localPy) {
+        $cand = Get-ChildItem -Path $localPy -Filter 'pythonw.exe' -Recurse -ErrorAction SilentlyContinue |
+            Sort-Object FullName -Descending | Select-Object -First 1
+        if ($cand) { return $cand.FullName }
+        $candExe = Get-ChildItem -Path $localPy -Filter 'python.exe' -Recurse -ErrorAction SilentlyContinue |
+            Sort-Object FullName -Descending | Select-Object -First 1
+        if ($candExe) { return $candExe.FullName }
+    }
+    # 3. Check system Program Files
+    foreach ($pf in @($env:ProgramFiles, ${env:ProgramFiles(x86)})) {
+        if ($pf -and (Test-Path $pf)) {
+            $cand = Get-ChildItem -Path $pf -Filter 'pythonw.exe' -Recurse -ErrorAction SilentlyContinue -Depth 3 |
+                Select-Object -First 1
+            if ($cand) { return $cand.FullName }
+        }
+    }
+    throw 'Python not found on PATH or standard install locations. Install Python 3.10-3.12 or pass -Python <path>.'
 }
 
 if ($Status) {
     try {
-        Get-ScheduledTask -TaskName $TaskName | Select-Object TaskName, State | Format-List
+        Get-ScheduledTask -TaskName $TaskName -ErrorAction Stop | Select-Object TaskName, State | Format-List
     } catch {
-        'Task not registered.'
+        Write-Host 'Task not registered.'
     }
     Get-CimInstance Win32_Process -Filter "Name='pythonw.exe'" |
         Where-Object { $_.CommandLine -match 'XssEngine' } |
         Select-Object ProcessId, CreationDate | Format-Table -AutoSize
-    exit 0
-}
-
-if ($Uninstall) {
-    Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction SilentlyContinue
-    Get-CimInstance Win32_Process -Filter "Name='pythonw.exe'" |
-        Where-Object { $_.CommandLine -match 'XssEngine' } |
-        ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
-    'AMD XSS Engine: task and daemon removed.'
     exit 0
 }
 
