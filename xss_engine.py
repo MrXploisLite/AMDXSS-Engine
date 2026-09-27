@@ -5,14 +5,15 @@ Reads hardware telemetry, picks a profile from the foreground application and us
 idle time, and applies it:
 
   CPU/SoC  -> Windows Processor Power Management schemes (powercfg), created by
-              setup_schemes.ps1.
+              New-XssSchemes.ps1.
   GPU      -> Radeon Chill / Frame Rate Target Control via ADLX (AMD Device Library
               eXtra) through the official amd-adlx Python binding. Optional: without
               it the engine still switches schemes and logs telemetry as far as the
               ADLX part is unavailable.
 
-Designed to run as a hidden logon task (install_task.ps1). Every action is
-reversible: `stock` restores stock power handling, `-Uninstall` removes the task.
+Designed to run as a hidden logon task (Install-XssEngine.ps1). Every action is
+reversible: `stock` restores stock power handling, `Uninstall-XssEngine.ps1`
+removes the task and schemes.
 """
 
 import ctypes
@@ -917,7 +918,7 @@ def _run():
         return cmd_stats(cfg, hrs)
     if mode == 'set':
         if len(args) < 2 or args[1].lower() not in cfg['profiles']:
-            print('usage: XssEngine.py set <%s>' % '|'.join(cfg['profiles']))
+            print('usage: xss_engine.py set <%s>' % '|'.join(cfg['profiles']))
             return 2
         return cmd_set(cfg, args[1].lower())
     if mode in ('daemon', 'run'):

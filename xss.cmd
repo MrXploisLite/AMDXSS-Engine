@@ -8,4 +8,4 @@ if not defined PYC (
   echo Python 3 not found on PATH. Install Python 3.10-3.12 or edit this file.
   exit /b 1
 )
-%PYC% "%~dp0XssEngine.py" %*
+%PYC% "%~dp0xss_engine.py" %*

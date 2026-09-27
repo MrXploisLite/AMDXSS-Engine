@@ -24,5 +24,5 @@
 3. **Reproducibility:**
    - Benchmark can be re-run at any time using:
      ```powershell
-     python bench.py --runs 3
+     py -3 bench.py --runs 3
      ```

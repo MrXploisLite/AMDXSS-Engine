@@ -15,7 +15,6 @@ in performance while recording real power consumption.
 import argparse
 import concurrent.futures as cf
 import hashlib
-import json
 import os
 import statistics
 import sys
@@ -31,7 +30,7 @@ except ImportError:
     RmSdk = None
 
 try:
-    from XssEngine import load_cfg, cmd_set
+    from xss_engine import load_cfg, cmd_set
 except ImportError:
     load_cfg = None
     cmd_set = None
@@ -88,7 +87,7 @@ def run_profile_test(cfg, profile, iterations, runs, rm, threads):
         cmd_set(cfg, profile)
     else:
         # Fallback to direct CLI
-        os.system(f'"{sys.executable}" "{os.path.join(BASE, "XssEngine.py")}" set {profile}')
+        os.system(f'"{sys.executable}" "{os.path.join(BASE, "xss_engine.py")}" set {profile}')
 
     time.sleep(2.5)  # Let clocks and governor stabilize
 
@@ -217,7 +216,7 @@ def main():
 
 | Profile | Completion Time | vs Stock (Delta) | PPT Avg / Max | Eff Clock | Avg Temp |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-""" + "\n".join(md_rows) + f"""
+""" + "\n".join(md_rows) + """
 
 ## Findings & Analysis
 
@@ -229,7 +228,7 @@ def main():
 3. **Reproducibility:**
    - Benchmark can be re-run at any time using:
      ```powershell
-     python bench.py --runs 3
+     py -3 bench.py --runs 3
      ```
 """
         with open(args.out, 'w', encoding='utf-8') as f:

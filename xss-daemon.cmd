@@ -9,4 +9,4 @@ if not defined PYW (
   echo Python 3 not found on PATH. Install Python 3.10-3.12 or edit this file.
   exit /b 1
 )
-start "" %PYW% "%~dp0XssEngine.py" daemon
+start "" %PYW% "%~dp0xss_engine.py" daemon

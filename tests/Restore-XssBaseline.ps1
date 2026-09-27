@@ -7,8 +7,8 @@
 # any system mutation begins, so a crash in the test runner (or in the agent
 # driving it) still returns the machine to its baseline.
 #
-#   .\restore_baseline.ps1                 restore from $env:ProgramData\AMDXSS\e2e-baseline.json
-#   .\restore_baseline.ps1 -ClearOnly      only clear OS tweaks, leave scheme alone
+#   .\Restore-XssBaseline.ps1                 restore from $env:ProgramData\AMDXSS\e2e-baseline.json
+#   .\Restore-XssBaseline.ps1 -ClearOnly      only clear OS tweaks, leave scheme alone
 #
 param(
     [string]$BaselineFile = (Join-Path $env:ProgramData 'AMDXSS\e2e-baseline.json'),

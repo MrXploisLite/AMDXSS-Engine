@@ -1,17 +1,16 @@
-# AMD XSS Engine - scheduled task installer.
+# AMD XSS Engine - scheduled task manager (Manage-XssTask.ps1).
 # Registers the daemon to start hidden at logon with highest privileges, so
 # scheme switching and GPU control work without UAC prompts.
 #
-#   .\install_task.ps1 -Start      install + start now
-#   .\install_task.ps1 -Status     show task state and running daemon
-#   .\install_task.ps1 -Uninstall  remove task and stop the daemon
+#   .\Manage-XssTask.ps1 -Start      install + start now
+#   .\Manage-XssTask.ps1 -Status     show task state and running daemon
+#   .\Uninstall-XssEngine.ps1        remove task, schemes and daemon
 #
 # Run from an elevated PowerShell. Optionally pass -Python <path to pythonw.exe>
 # when Python is not on PATH.
 #
-#   .\install_task.ps1 [-Start]          install + start now
-#   .\install_task.ps1 -Status           show task state and running daemon
-#   .\uninstall.ps1                      remove task, schemes and daemon
+#   .\Manage-XssTask.ps1 [-Start]        install + start now
+#   .\Manage-XssTask.ps1 -Status         show task state and running daemon
 
 param([switch]$Start, [switch]$Status, [string]$Python = '')
 
@@ -61,7 +60,7 @@ if ($Status) {
         Write-Host 'Task not registered.'
     }
     Get-CimInstance Win32_Process -Filter "Name='pythonw.exe'" |
-        Where-Object { -not $_.CommandLine -or $_.CommandLine -match 'XssEngine' } |
+        Where-Object { -not $_.CommandLine -or $_.CommandLine -match 'xss_engine' } |
         Select-Object ProcessId, CreationDate | Format-Table -AutoSize
     exit 0
 }
@@ -72,7 +71,7 @@ if ([IO.Path]::GetFileName($py) -ieq 'python.exe') {
 }
 
 $action = New-ScheduledTaskAction -Execute $py `
-    -Argument ('"{0}" daemon' -f (Join-Path $Dir 'XssEngine.py')) -WorkingDirectory $Dir
+    -Argument ('"{0}" daemon' -f (Join-Path $Dir 'xss_engine.py')) -WorkingDirectory $Dir
 $trigger = New-ScheduledTaskTrigger -AtLogOn -User "$env:USERDOMAIN\$env:USERNAME"
 $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
     -ExecutionTimeLimit ([TimeSpan]::Zero) -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) `
@@ -88,6 +87,6 @@ if ($Start) {
     Start-ScheduledTask -TaskName $TaskName
     Start-Sleep -Seconds 3
     $proc = Get-CimInstance Win32_Process -Filter "Name='pythonw.exe'" |
-        Where-Object { $_.CommandLine -match 'XssEngine' }
+        Where-Object { -not $_.CommandLine -or $_.CommandLine -match 'xss_engine' }
     if ($proc) { "Daemon running: PID $($proc.ProcessId)" } else { 'Daemon not detected; check logs\xss-engine-*.log' }
 }

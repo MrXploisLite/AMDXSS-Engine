@@ -73,7 +73,7 @@ detects throttling under sustained load (browser compiles, renders, games).
    cleared every poll, restore skips dead processes.
 2. [x] Switch-count budget: automatic switches rate-limited to one per
    `min_switch_interval_seconds` (default 30; override bypasses). Evidence
-   tool: `XssEngine.py stats [hours]` — switch rate with the <= 10/h budget,
+   tool: `xss_engine.py stats [hours]` — switch rate with the <= 10/h budget,
    profile share, CPU/GPU power and thermal averages.
 3. [x] `stock` restores OS tweaks too (priorities back to normal, efficiency
    mode cleared on every tracked pid); daemon shutdown releases everything.
@@ -89,12 +89,12 @@ no manual CSV digging.
 
 ## v0.7 — One-command setup + uninstall (medium) [x] DONE 2026-09-28
 
-- [x] Dedicated master installer `install.ps1`: copies files to standard
+- [x] Dedicated master installer `Install-XssEngine.ps1`: copies files to standard
   `$env:ProgramFiles\AMDXSS`, dynamically discovers Python (py.exe launcher,
   PATH, Registry, LocalAppData), idempotently sets up schemes, registers
   the logon task with highest privileges, adds to System PATH, and starts daemon.
-- [x] Portable mode supported via `install.ps1 -InPlace` (runs directly in repo).
-- [x] Clean uninstaller `uninstall.ps1`: stops daemon, removes scheduled task,
+- [x] Portable mode supported via `Install-XssEngine.ps1 -InPlace` (runs directly in repo).
+- [x] Clean uninstaller `Uninstall-XssEngine.ps1`: stops daemon, removes scheduled task,
   restores default `SCHEME_BALANCED`, deletes custom schemes, cleans PATH, and
   removes installation files (`-RemoveFiles`).
 - [x] Verified by full round-trip testing: install -> verify -> uninstall ->
@@ -112,10 +112,10 @@ no manual CSV digging.
 
 ## v0.9 — Release polish (small) [x] DONE 2026-09-28
 
-- [x] Version bump synchronized across codebase (`XssEngine.py`, `xss_config.json`,
+- [x] Version bump synchronized across codebase (`xss_engine.py`, `xss_config.json`,
   `SECURITY.md`, `README.md`) to **v0.9.0**.
 - [x] Documentation & file inventory audit: verified zero hardcoding, clean open-source
-  instructions, `bench.py` and `install.ps1` documented.
+  instructions, `bench.py` and `Install-XssEngine.ps1` documented.
 - [x] Security policy updated for 0.9.x / 1.0.x support.
 - [x] Live installed daemon in `C:\Program Files\AMDXSS` updated to v0.9.0 without
   interrupting user sessions.

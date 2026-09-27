@@ -4,15 +4,15 @@
 #   1. PRE-CHECK  - assert environment BEFORE any mutation; abort early on failure.
 #   2. BASELINE   - timestamped snapshot of active scheme + touched PIDs -> %ProgramData%\AMDXSS\e2e-baseline.json.
 #   3. DEAD-MAN   - 'AMD XSS E2E Watchdog' scheduled task armed BEFORE mutation;
-#                   fires restore_baseline.ps1 even if this runner dies mid-test.
+#                   fires Restore-XssBaseline.ps1 even if this runner dies mid-test.
 #   4. GUARD      - every actuation is verified by READBACK; failure => immediate
 #                   restore + stop remaining tests (bounded blast radius).
 #   5. RECONCILE  - restore outcome read back and classified RECOVERED /
 #                   UNVERIFIED. Never assume rollback succeeded.
 #
 # Usage (elevated PowerShell):
-#   .\e2e_harness.ps1                full suite
-#   .\e2e_harness.ps1 -Quick         skip benchmark stage
+#   .\Invoke-E2eTests.ps1                full suite
+#   .\Invoke-E2eTests.ps1 -Quick         skip benchmark stage
 #
 param([switch]$Quick)
 
@@ -22,7 +22,7 @@ $TestDir      = $PSScriptRoot
 $DataDir      = Join-Path $env:ProgramData 'AMDXSS'
 $BaselineFile = Join-Path $DataDir 'e2e-baseline.json'
 $ReportFile   = Join-Path $DataDir 'e2e-report.txt'
-$RestoreScript = Join-Path $TestDir 'restore_baseline.ps1'
+$RestoreScript = Join-Path $TestDir 'Restore-XssBaseline.ps1'
 $WatchdogName = 'AMD XSS E2E Watchdog'
 $WatchdogDeadline = 300   # seconds: restore runs this long after arming unless confirmed
 
@@ -57,7 +57,7 @@ function Invoke-GuardedActuation([string]$profile) {
     Set-Content -Path (Join-Path $stateDir 'override.txt') -Value $profile -Encoding ascii
 
     $py = & py.exe -3 -c "import sys; print(sys.executable)" 2>$null
-    & $py (Join-Path $InstallDir 'XssEngine.py') set $profile 2>&1 | Out-Null
+    & $py (Join-Path $InstallDir 'xss_engine.py') set $profile 2>&1 | Out-Null
     Start-Sleep -Seconds 2
     $state = Get-Content (Join-Path $InstallDir 'state\xss_state.json') -Raw | ConvertFrom-Json
     $schemeNow = Get-ActiveSchemeGuid
@@ -89,7 +89,7 @@ if ($pr.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
 }
 
 # P2: engine files present (explicit assertions, never a check that passes on empty)
-$required = @('XssEngine.py', 'rm_sdk.py', 'xss_config.json', 'xss.cmd', 'bench.py', 'setup_schemes.ps1')
+$required = @('xss_engine.py', 'rm_sdk.py', 'xss_config.json', 'xss.cmd', 'bench.py', 'New-XssSchemes.ps1')
 $missing = @($required | Where-Object { -not (Test-Path (Join-Path $InstallDir $_)) })
 if ($missing.Count -eq 0) {
     Log 'PRECHECK:files' 'PASS' "all $($required.Count) runtime files present in $InstallDir"
@@ -100,7 +100,7 @@ if ($missing.Count -eq 0) {
 
 # P3: daemon running + task registered
 $daemon = Get-CimInstance Win32_Process -Filter "Name='pythonw.exe' or Name='python.exe'" |
-    Where-Object { -not $_.CommandLine -or $_.CommandLine -match 'XssEngine' } | Select-Object -First 1
+    Where-Object { -not $_.CommandLine -or $_.CommandLine -match 'xss_engine' } | Select-Object -First 1
 try {
     $task = Get-ScheduledTask -TaskName 'AMD XSS Engine' -ErrorAction Stop
     if ($daemon) {
@@ -176,7 +176,7 @@ try {
 
     if (-not $aborted) {
         # -------------------------------------------------- STAGE 4: TELEMETRY + LOGGING
-        $telemetry = & $py (Join-Path $InstallDir 'XssEngine.py') status 2>&1 | Out-String
+        $telemetry = & $py (Join-Path $InstallDir 'xss_engine.py') status 2>&1 | Out-String
         if ($telemetry -match 'ADLX ready' -and $telemetry -match 'clock=\d+MHz') {
             Log 'GPU_TELEMETRY' 'PASS' 'ADLX live clock/temp/power'
         } else {
@@ -239,7 +239,7 @@ try {
     } elseif ($outcome -eq 'RECOVERED') {
         Log 'RECONCILE' 'WARN' "outcome=$outcome but active=$nowActive vs baseline=$wantActive (Balanced fallback?)"
     } else {
-        Log 'RECONCILE' 'FAIL' "outcome=$outcome - MANUAL INTERVENTION: run restore_baseline.ps1"
+        Log 'RECONCILE' 'FAIL' "outcome=$outcome - MANUAL INTERVENTION: run Restore-XssBaseline.ps1"
     }
 
     # Disarm the dead-man's switch only after reconciliation.

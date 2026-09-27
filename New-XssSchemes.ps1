@@ -4,7 +4,7 @@
 # Idempotent: schemes that already exist are kept and their values verified,
 # not recreated. Run from an elevated PowerShell:
 #
-#   powershell -ExecutionPolicy Bypass -File .\setup_schemes.ps1 [-Activate]
+#   powershell -ExecutionPolicy Bypass -File .\New-XssSchemes.ps1 [-Activate]
 param([switch]$Activate)
 
 $ErrorActionPreference = 'Stop'

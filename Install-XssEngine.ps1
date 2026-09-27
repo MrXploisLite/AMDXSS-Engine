@@ -1,11 +1,11 @@
-# AMD XSS Engine — Master Installer
+# AMD XSS Engine — Master Installer (Install-XssEngine.ps1)
 # Installs the engine to a dedicated directory (default: C:\Program Files\AMDXSS),
 # creates power schemes, registers the scheduled logon task, and adds to PATH.
 #
 # Usage (Run from an elevated PowerShell):
-#   .\install.ps1                  # Standard dedicated install to Program Files
-#   .\install.ps1 -InPlace         # Portable / Developer mode (runs from current folder)
-#   .\install.ps1 -NoStart         # Install without starting daemon immediately
+#   .\Install-XssEngine.ps1                # Standard dedicated install to Program Files
+#   .\Install-XssEngine.ps1 -InPlace       # Portable / Developer mode (runs from current folder)
+#   .\Install-XssEngine.ps1 -NoStart       # Install without starting daemon immediately
 #
 param(
     [string]$InstallDir = '',
@@ -90,14 +90,14 @@ if (-not $InPlace) {
         New-Item -ItemType Directory -Path $TargetDir -Force | Out-Null
     }
     $filesToCopy = @(
-        'XssEngine.py',
+        'xss_engine.py',
         'rm_sdk.py',
         'xss_config.json',
         'xss.cmd',
         'xss-daemon.cmd',
         'bench.py',
-        'setup_schemes.ps1',
-        'uninstall.ps1'
+        'New-XssSchemes.ps1',
+        'Uninstall-XssEngine.ps1'
     )
     foreach ($f in $filesToCopy) {
         $src = Join-Path $SourceDir $f
@@ -115,9 +115,9 @@ if (-not $InPlace) {
 
 # --- 3. Setup Power Schemes ---
 Write-Host '[+] Setting up power schemes...'
-$setupScript = Join-Path $TargetDir 'setup_schemes.ps1'
+$setupScript = Join-Path $TargetDir 'New-XssSchemes.ps1'
 if (-not (Test-Path $setupScript)) {
-    $setupScript = Join-Path $SourceDir 'setup_schemes.ps1'
+    $setupScript = Join-Path $SourceDir 'New-XssSchemes.ps1'
 }
 & $setupScript -Activate
 
@@ -125,7 +125,7 @@ if (-not (Test-Path $setupScript)) {
 Write-Host "[+] Registering scheduled task '$TaskName'..."
 Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction SilentlyContinue
 
-$engineScript = Join-Path $TargetDir 'XssEngine.py'
+$engineScript = Join-Path $TargetDir 'xss_engine.py'
 $action = New-ScheduledTaskAction -Execute $py `
     -Argument ("`"{0}`" daemon" -f $engineScript) -WorkingDirectory $TargetDir
 $trigger = New-ScheduledTaskTrigger -AtLogOn -User "$env:USERDOMAIN\$env:USERNAME"
@@ -163,7 +163,7 @@ if (-not $NoStart) {
     Start-ScheduledTask -TaskName $TaskName
     Start-Sleep -Seconds 3
     $proc = Get-CimInstance Win32_Process -Filter "Name='pythonw.exe' or Name='python.exe'" -ErrorAction SilentlyContinue |
-        Where-Object { -not $_.CommandLine -or $_.CommandLine -match 'XssEngine' }
+        Where-Object { -not $_.CommandLine -or $_.CommandLine -match 'xss_engine' }
     if ($proc) {
         Write-Host "    [OK] Daemon running: PID $($proc.ProcessId)"
     } else {

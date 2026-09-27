@@ -1,10 +1,10 @@
-# AMD XSS Engine — uninstall script
+# AMD XSS Engine — uninstall script (Uninstall-XssEngine.ps1)
 # Stops the daemon, removes the scheduled task and custom power schemes,
 # restores default Windows Balanced scheme, and cleans PATH / files.
 #
 # Run from an elevated PowerShell:
-#   .\uninstall.ps1
-#   .\uninstall.ps1 -RemoveFiles
+#   .\Uninstall-XssEngine.ps1
+#   .\Uninstall-XssEngine.ps1 -RemoveFiles
 #
 param(
     [switch]$RemoveFiles,
@@ -24,7 +24,7 @@ $ScriptDir = $PSScriptRoot
 
 Write-Host '[+] Stopping running daemon processes...'
 Get-CimInstance Win32_Process -Filter "Name='pythonw.exe' or Name='python.exe'" -ErrorAction SilentlyContinue |
-    Where-Object { $_.CommandLine -match 'XssEngine' } |
+    Where-Object { -not $_.CommandLine -or $_.CommandLine -match 'xss_engine' } |
     ForEach-Object {
         Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
         Write-Host "    Stopped process PID $($_.ProcessId)"

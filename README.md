@@ -45,7 +45,7 @@ GPU telemetry (ADLX) ───────┘              └► Radeon Chill /
 
 - Windows 10 or 11
 - Python 3.10+ (64-bit) on PATH
-- Administrator rights for `setup_schemes.ps1` and `install_task.ps1`
+- Administrator rights for `New-XssSchemes.ps1` and `Install-XssEngine.ps1`
 - Optional: `pip install -r requirements.txt` for the ADLX binding (GPU telemetry
   and frame-rate control). Without it, the engine still switches power schemes
   and runs the CPU-side policy normally.
@@ -54,19 +54,6 @@ GPU telemetry (ADLX) ───────┘              └► Radeon Chill /
   `HKLM\Software\AMD\RyzenMasterMonitoringSDK` registry key or the default
   install path; its `AMDRyzenMasterDriverV32` service must be running.
 
-## Setup
-
-```powershell
-# 1. Optional: GPU telemetry/control support
-python -m pip install -r requirements.txt
-
-# 2. Create the power schemes used by the profiles (elevated)
-powershell -ExecutionPolicy Bypass -File .\setup_schemes.ps1 -Activate
-
-# 3. Register the logon task and start the daemon (elevated)
-powershell -ExecutionPolicy Bypass -File .\install_task.ps1 -Start
-```
-
 ## Usage
 
 ```powershell
@@ -74,13 +61,13 @@ powershell -ExecutionPolicy Bypass -File .\install_task.ps1 -Start
 .\xss.cmd set eco             # switch to eco once (the daemon may switch again on next poll)
 echo balanced > state\override.txt  # pin a profile until the file changes (delete the file to release)
 .\xss.cmd telemetry 30        # sample metrics for 30 s into logs/xss-telemetry.csv
-.\xss.cmd stats 24           # switch rate + profile share + power/thermal averages
+.\xss.cmd stats 24            # switch rate + profile share + power/thermal averages
 .\xss.cmd probe               # what the ADLX driver exposes on this GPU
 .\xss-daemon.cmd              # run the policy loop in the foreground (debug)
 
-# management
-powershell -ExecutionPolicy Bypass -File .\install_task.ps1 -Status
-powershell -ExecutionPolicy Bypass -File .\install_task.ps1 -Uninstall
+# management (elevated)
+powershell -ExecutionPolicy Bypass -File .\Manage-XssTask.ps1 -Status
+powershell -ExecutionPolicy Bypass -File .\Uninstall-XssEngine.ps1
 ```
 
 Profiles:
@@ -110,19 +97,22 @@ undo cleanly on shutdown or when you switch back.
 Run from **PowerShell elevated (Run as Administrator)**:
 
 ```powershell
+# 0) Optional: GPU telemetry/control support
+python -m pip install -r requirements.txt
+
 # 1) One-command install: copies to C:\Program Files\AMDXSS, sets up power schemes,
 #    registers the logon task with highest privileges, adds to PATH, and starts the daemon:
-.\install.ps1
+.\Install-XssEngine.ps1
 
 # Or portable / developer mode (runs in-place from the repo directory, no files copied):
-.\install.ps1 -InPlace
+.\Install-XssEngine.ps1 -InPlace
 
 # 2) Verify it's running and check stats (works from any shell since it's on PATH):
 xss status
 xss stats 24                  # switch rate + profile share + per-profile power (v0.6)
 
 # 3) Clean uninstall whenever needed:
-.\uninstall.ps1 -RemoveFiles  # stops daemon, deletes task, restores Balanced, deletes custom schemes
+.\Uninstall-XssEngine.ps1 -RemoveFiles  # stops daemon, deletes task, restores Balanced, deletes custom schemes
 ```
 
 The engine will automatically switch profiles based on your active application
@@ -131,16 +121,18 @@ The engine will automatically switch profiles based on your active application
 ## Files
 
 ```
-XssEngine.py        daemon, CLI, policy, ADLX wrapper
+xss_engine.py       daemon, CLI, policy, ADLX wrapper (PEP 8 module name)
 rm_sdk.py           AMD Ryzen Master Monitoring SDK bridge (CPU telemetry)
-xss_config.json     profiles, rules, poll interval
-install.ps1         one-command master installer (dedicated or in-place)
-uninstall.ps1       clean uninstaller (task, schemes, PATH, files)
 bench.py            performance & no-regression benchmark runner (v0.8)
-setup_schemes.ps1   creates and verifies the power schemes (idempotent)
-install_task.ps1    task status & manual logon task installer
+xss_config.json     profiles, rules, poll interval
 xss.cmd             console launcher
 xss-daemon.cmd      hidden daemon launcher
+Install-XssEngine.ps1     one-command master installer (dedicated or in-place)
+Uninstall-XssEngine.ps1   clean uninstaller (task, schemes, PATH, files)
+New-XssSchemes.ps1        creates and verifies the power schemes (idempotent)
+Manage-XssTask.ps1        logon task install / status
+tests/              E2E harness + baseline recovery (Invoke-E2eTests.ps1)
+docs/               roadmap, benchmarks, audit archive
 logs/               engine logs + telemetry CSV (not tracked)
 state/              runtime state + override file (not tracked)
 ```
@@ -152,7 +144,7 @@ state/              runtime state + override file (not tracked)
   code is short and does nothing else.
 - ADLX teardown: the `amd-adlx` binding can segfault during interpreter
   shutdown, so the engine keeps its ADLX references alive and exits via
-  `os._exit()`. This is deliberate; see `stop()` in `XssEngine.py`.
+  `os._exit()`. This is deliberate; see `stop()` in `xss_engine.py`.
 - Measured on the test machine (Ryzen 7 5700G, Vega iGPU): per-profile
   benchmarks stayed within +/-1% of each other, and GPU idle power samples
   read 9-13 W at the 400 MHz idle clock. Raw samples land in
