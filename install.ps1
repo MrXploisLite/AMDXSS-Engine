@@ -163,7 +163,7 @@ if (-not $NoStart) {
     Start-ScheduledTask -TaskName $TaskName
     Start-Sleep -Seconds 3
     $proc = Get-CimInstance Win32_Process -Filter "Name='pythonw.exe' or Name='python.exe'" -ErrorAction SilentlyContinue |
-        Where-Object { $_.CommandLine -match 'XssEngine' }
+        Where-Object { -not $_.CommandLine -or $_.CommandLine -match 'XssEngine' }
     if ($proc) {
         Write-Host "    [OK] Daemon running: PID $($proc.ProcessId)"
     } else {

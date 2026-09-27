@@ -61,7 +61,7 @@ if ($Status) {
         Write-Host 'Task not registered.'
     }
     Get-CimInstance Win32_Process -Filter "Name='pythonw.exe'" |
-        Where-Object { $_.CommandLine -match 'XssEngine' } |
+        Where-Object { -not $_.CommandLine -or $_.CommandLine -match 'XssEngine' } |
         Select-Object ProcessId, CreationDate | Format-Table -AutoSize
     exit 0
 }
