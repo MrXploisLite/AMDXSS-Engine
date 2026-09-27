@@ -100,11 +100,15 @@ no manual CSV digging.
 - [x] Verified by full round-trip testing: install -> verify -> uninstall ->
   clean baseline -> reinstall -> active daemon running.
 
-## v0.8 — No-regression proof (medium)
+## v0.8 — No-regression proof (medium) [x] DONE 2026-09-28
 
-Performance evidence under a fixed synthetic CPU load, engine on (performance)
-vs `stock`: completion time must not regress, with avg PPT recorded alongside.
-Numbers shipped in `docs/PERF-EVIDENCE.md`.
+- [x] Dedicated reproducible benchmark tool `bench.py`: runs multi-threaded CPU
+  stress across 16 threads while sampling Ryzen Master SDK hardware telemetry
+  (PPT, thermals, clocks).
+- [x] Empirical test executed on Ryzen 7 5700G across profiles:
+  `stock` (8.041s) vs `performance` (7.750s, -3.6% faster) vs `balanced`
+  (7.860s, -2.2% faster) vs `eco` (7.976s).
+- [x] Zero performance regression proven; results recorded in `docs/PERF-EVIDENCE.md`.
 
 ## v0.9 — Release polish (small)
 
