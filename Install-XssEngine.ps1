@@ -1,6 +1,7 @@
 # AMD XSS Engine — Master Installer (Install-XssEngine.ps1)
 # Installs the engine to a dedicated directory (default: C:\Program Files\AMDXSS),
 # creates power schemes, registers the scheduled logon task, and adds to PATH.
+# Upgrades automatically clean up legacy pre-rename filenames from older installs.
 #
 # Usage (Run from an elevated PowerShell):
 #   .\Install-XssEngine.ps1                # Standard dedicated install to Program Files
@@ -109,6 +110,17 @@ if (-not $InPlace) {
                 Copy-Item -Path $src -Destination $dst -Force
                 Write-Host "    [+] Copied: $f"
             }
+        }
+    }
+
+    # Clean up pre-rename legacy filenames from older installations (safe: their
+    # content is identical to the renamed files above and exists as replacements).
+    $legacy = @('XssEngine.py', 'setup_schemes.ps1', 'uninstall.ps1', 'install.ps1', 'install_task.ps1')
+    foreach ($f in $legacy) {
+        $old = Join-Path $TargetDir $f
+        if (Test-Path $old) {
+            Remove-Item -Path $old -Force
+            Write-Host "    [-] Removed legacy file: $f"
         }
     }
 }
