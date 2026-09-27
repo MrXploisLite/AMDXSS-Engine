@@ -47,12 +47,25 @@ Nothing per-game; everything at driver scope so all 3D apps benefit:
 - [x] RSR requirement documented in README (exclusive fullscreen +
   below-native resolution) — N/A on this iGPU, noted honestly.
 
-## v0.4 — CPU telemetry (medium, unlocks honesty)
+## v0.4 — CPU telemetry (medium, unlocks honesty) [x] DONE 2026-09-27
 
 AMD Ryzen Master Monitoring SDK (public, read-only): PPT/TDC/EDC,
 temperature, voltage, effective frequency per core at 1 Hz. Add columns to
 CSV + `status`. This is what proves the eco claim (watts, not vibes) and
 detects throttling under sustained load (browser compiles, renders, games).
+
+- [x] SDK extracted from the official package (the MSI custom action rolls
+  back with error 1603 when a reboot is pending or an older
+  `AMDRyzenMasterDriverV20` service exists; the files themselves are fine).
+- [x] `rm_sdk.py` bridges Platform.dll through the documented C++ vtable
+  (ICPUEx). One layout ambiguity (MSVC destructor slots) resolved at runtime
+  with a safe calibration probe.
+- [x] Manual component setup: copy to `C:\Program Files\AMD\
+  RyzenMasterMonitoringSDK`, register `AMDRyzenMasterDriverV32` (demand,
+  official signed driver), set the InstallationPath registry value. Fully
+  reversible: `sc stop/delete AMDRyzenMasterDriverV32` + remove the folder.
+- [x] Validated against AMD's own sample app: PPT/TDC/EDC limits and values,
+  VDDCR rails, per-core freq/C0/temp all match. CSV gains 6 CPU columns.
 
 ## v0.5 — Stability proof (medium)
 

@@ -34,10 +34,12 @@ STATE_PATH = os.path.join(STATE_DIR, 'xss_state.json')
 OVERRIDE_PATH = os.path.join(STATE_DIR, 'override.txt')
 TELEMETRY_CSV = os.path.join(LOG_DIR, 'xss-telemetry.csv')
 TELEMETRY_HEADER = ['ts', 'fg', 'idle_s', 'profile', 'fg_pid', 'scheme_ok', 'gpu_ok', 'os_ok',
-                    'gpu_clock', 'gpu_usage', 'gpu_temp', 'gpu_power', 'fps']
+                    'gpu_clock', 'gpu_usage', 'gpu_temp', 'gpu_power', 'fps',
+                    'cpu_ppt_w', 'cpu_tdc_vdd_a', 'cpu_edc_vdd_a', 'cpu_vddcr_vdd_w',
+                    'cpu_temp_c', 'cpu_eff_mhz']
 MUTEX_NAME = 'Global\\AmdXssEngineDaemon'
 
-VERSION = '0.1.0'
+VERSION = '0.2.0'
 
 # ADLX is a pybind11 module; dropping its objects during interpreter shutdown can
 # segfault. Keep references alive for the process lifetime and exit via os._exit().
@@ -172,6 +174,12 @@ def set_scheme(name):
 
 
 # -------------------------------------------------------------------- ADLX --
+try:
+    from rm_sdk import RmSdk          # optional: AMD Ryzen Master Monitoring SDK
+except Exception:
+    RmSdk = None
+
+
 class Adlx:
     def __init__(self):
         self.helper = None
@@ -605,6 +613,24 @@ def cmd_status(cfg):
             time.sleep(0.6)
         print('3D settings   : %s' % json.dumps(a.chill_frtc_states(), ensure_ascii=False))
         a.stop()
+    rm = RmSdk() if RmSdk else None
+    if rm and rm.start():
+        print('CPU (RM SDK)  : %s' % rm.cpu_name)
+        c = rm.metrics()
+        if c:
+            print('  PPT %.1f/%.1fW | TDC(VDD) %.1f/%.1fA | EDC(VDD) %.1f/%.1fA' % (
+                c['ppt_w'], c['ppt_limit_w'], c['tdc_vdd_a'], c['tdc_vdd_limit_a'],
+                c['edc_vdd_a'], c['edc_vdd_limit_a']))
+            print('  VDDCR_VDD %.1fW | SOC %.1fW | VDD %.3fV | SoC %.3fV | %.1fC | Fmax %.0fMHz | FCLK %.0fMHz' % (
+                c['vddcr_vdd_w'], c['vddcr_soc_w'], c['vdd_v'], c['soc_v'],
+                c['temp_c'], c['fmax_mhz'], c['fclk_mhz']))
+            effs = [x['eff_mhz'] for x in c['cores'] if x.get('eff_mhz')]
+            c0s = [x['c0'] for x in c['cores'] if x.get('c0') is not None]
+            tmax = [x['temp'] for x in c['cores'] if x.get('temp') is not None]
+            print('  cores: avg eff %.0fMHz | avg C0 %.0f%% | max %.1fC (%d cores)' % (
+                sum(effs) / max(1, len(effs)), sum(c0s) / max(1, len(c0s)),
+                max(tmax) if tmax else 0, len(c['cores'])))
+        rm.stop()
     return 0
 
 
@@ -642,20 +668,31 @@ def cmd_telemetry(cfg, seconds=20):
     ensure_dirs()
     new = not os.path.exists(TELEMETRY_CSV)
     prof_now = read_state().get('profile', '')
+    rm = RmSdk() if RmSdk else None
+    if rm and not rm.start():
+        rm = None
     with open(TELEMETRY_CSV, 'a', newline='', encoding='utf-8') as f:
         w = csv.writer(f)
         if new:
-            w.writerow(['ts', 'fg', 'idle_s', 'profile', 'gpu_clock', 'gpu_usage', 'gpu_temp', 'gpu_power', 'fps'])
+            w.writerow(TELEMETRY_HEADER)
         t0 = time.time()
         while time.time() - t0 < seconds:
             m = a.metrics() or {}
-            row = [dt.datetime.now().strftime('%H:%M:%S'), foreground_exe(), '%.0f' % idle_seconds(),
-                   prof_now, m.get('clock'), m.get('usage'), m.get('temp'), m.get('power'), m.get('fps')]
+            c = (rm.metrics() if rm else None) or {}
+            effs = [x['eff_mhz'] for x in c.get('cores', []) if x.get('eff_mhz')]
+            eff_avg = round(sum(effs) / len(effs), 1) if effs else ''
+            row = [dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S'), foreground_exe(),
+                   '%.0f' % idle_seconds(), prof_now, '', '', '', '',
+                   m.get('clock'), m.get('usage'), m.get('temp'), m.get('power'), m.get('fps'),
+                   c.get('ppt_w'), c.get('tdc_vdd_a'), c.get('edc_vdd_a'),
+                   c.get('vddcr_vdd_w'), c.get('temp_c'), eff_avg]
             w.writerow(row)
             f.flush()
             print(' | '.join(str(x) for x in row))
             time.sleep(2)
     a.stop()
+    if rm:
+        rm.stop()
     print('CSV: %s' % TELEMETRY_CSV)
     return 0
 
@@ -669,6 +706,13 @@ def cmd_daemon(cfg, max_seconds=0):
     log('=== AMD XSS Engine v%s daemon start (poll %ss) ===' % (VERSION, cfg.get('poll_seconds', 5)))
     a = Adlx()
     a.start()
+    rm = RmSdk() if RmSdk else None
+    if rm:
+        if rm.start():
+            log('RM SDK ready | CPU: %s' % rm.cpu_name)
+        else:
+            log('RM SDK unavailable: %s' % rm.last_error, 'WARN')
+            rm = None
     state = read_state()
     state.update({'engine': VERSION, 'pid': os.getpid(), 'started': dt.datetime.now().isoformat(timespec='seconds')})
     current = state.get('profile')
@@ -705,13 +749,16 @@ def cmd_daemon(cfg, max_seconds=0):
                 except Exception as e:
                     log('os tweaks poll failed: %s' % e, 'WARN')
             m = a.metrics() or {}
+            c = (rm.metrics() if rm else None) or {}
+            effs = [x['eff_mhz'] for x in c.get('cores', []) if x.get('eff_mhz')]
+            eff_avg = round(sum(effs) / len(effs), 1) if effs else ''
             with open(TELEMETRY_CSV, 'a', newline='', encoding='utf-8') as f:
                 w = csv.writer(f)
                 if new:
                     # Old rows (pre-v0.2) have 9 columns; mark the break so the
                     # CSV stays parseable, then continue with the full header.
                     if os.path.getsize(TELEMETRY_CSV) > 0:
-                        w.writerow(['--- schema v2 below: ' + ','.join(TELEMETRY_HEADER) + ' ---'])
+                        w.writerow(['--- schema v3 below: ' + ','.join(TELEMETRY_HEADER) + ' ---'])
                     else:
                         w.writerow(TELEMETRY_HEADER)
                     new = False
@@ -719,7 +766,9 @@ def cmd_daemon(cfg, max_seconds=0):
                             current, state.get('os_boosted_pid', ''), state.get('scheme_ok', ''),
                             state.get('gpu_ok', ''), state.get('os_ok', ''),
                             m.get('clock'), m.get('usage'), m.get('temp'),
-                            m.get('power'), m.get('fps')])
+                            m.get('power'), m.get('fps'),
+                            c.get('ppt_w'), c.get('tdc_vdd_a'), c.get('edc_vdd_a'),
+                            c.get('vddcr_vdd_w'), c.get('temp_c'), eff_avg])
             time.sleep(max(2, int(cfg.get('poll_seconds', 5))))
     except KeyboardInterrupt:
         log('daemon stopped (Ctrl+C)')

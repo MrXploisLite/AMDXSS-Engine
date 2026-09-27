@@ -36,6 +36,10 @@ GPU telemetry (ADLX) ───────┘              └► Radeon Chill /
 - **Driver-global GPU posture** (per profile): Radeon Image Sharpening,
   Anti-Lag and Enhanced Sync toggled via ADLX with readback. RSR is not
   exposed on Vega-class iGPUs, so the engine does not pretend to manage it.
+- **CPU power telemetry** (optional, via the AMD Ryzen Master Monitoring SDK):
+  PPT/TDC/EDC with limits, VDDCR rails, voltages, temperature, Fmax/FCLK and
+  per-core frequency/C0-residency/temperature — sampled at most once per
+  second per AMD's guidance, appended to the telemetry CSV.
 
 ## Requirements
 
@@ -45,6 +49,10 @@ GPU telemetry (ADLX) ───────┘              └► Radeon Chill /
 - Optional: `pip install -r requirements.txt` for the ADLX binding (GPU telemetry
   and frame-rate control). Without it, the engine still switches power schemes
   and runs the CPU-side policy normally.
+- Optional: [AMD Ryzen Master Monitoring SDK](https://www.amd.com/en/developer/ryzen-master-monitoring-sdk.html)
+  for CPU power telemetry (`rm_sdk.py`). The engine finds it via the
+  `HKLM\Software\AMD\RyzenMasterMonitoringSDK` registry key or the default
+  install path; its `AMDRyzenMasterDriverV32` service must be running.
 
 ## Setup
 
@@ -90,6 +98,7 @@ restart. Long-term plan: `docs/ROADMAP-LONG.md`.
 
 ```
 XssEngine.py        daemon, CLI, policy, ADLX wrapper
+rm_sdk.py           optional AMD Ryzen Master Monitoring SDK bridge (CPU telemetry)
 xss_config.json     profiles, rules, poll interval
 setup_schemes.ps1   creates the power schemes (idempotent)
 install_task.ps1    logon task install/status/uninstall
