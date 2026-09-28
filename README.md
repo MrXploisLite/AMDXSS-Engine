@@ -41,70 +41,50 @@ GPU telemetry (ADLX) ───────┘              └► Radeon Chill /
   per-core frequency/C0-residency/temperature — sampled at most once per
   second per AMD's guidance, appended to the telemetry CSV.
 
-## Empirical Benchmark: Stock Windows vs AMD XSS Engine
+## Empirical Benchmarks: Stock Windows vs AMD XSS Engine
 
-Measured directly on target hardware: **AMD Ryzen 7 5700G** (8 Cores / 16 Threads, Cezanne APU, Radeon Vega iGPU, 16GB DDR4) under Windows 11 Home (Build 26200).  
-Telemetry sampled at 1.0 s intervals directly from AMD hardware registers via the **AMD Ryzen Master Monitoring SDK** (SMU Package Temp, Socket PPT Watts, Effective Clocks) and **AMD ADLX API** (GPU Clock/Power).
+All benchmarks run on **AMD Ryzen 7 5700G** (8C/16T Cezanne APU, Radeon Vega 8 iGPU, 16 GB DDR4) under Windows 11.  
+Telemetry sampled at 1.0 s via **AMD Ryzen Master Monitoring SDK** (SMU Package Temp, Socket PPT, Effective Clocks) and **AMD ADLX API** (GPU Clock/Power/Temp).
 
-### Workload A: System Idle (Quiescent Background State)
+### A. Real-World Browser — 10 Live Websites
 
-| Metric | Stock Windows Balanced | AMDXSS Balanced | AMDXSS Eco (Power Saver) | Delta / Benefit |
+10 tabs opened simultaneously in an isolated Edge instance: **YouTube, Reddit, Twitter/X, Instagram, Wikipedia, GitHub, Stack Overflow, Amazon, CNN, Twitch**. No synthetic pages — every tab hits the live internet.
+
+| Metric | Stock Windows | AMDXSS Balanced | AMDXSS Eco | Eco vs Stock |
 | :--- | :--- | :--- | :--- | :--- |
-| **Mean Socket Power (PPT)** | 7.79 W | **7.75 W** | 7.84 W | Stable baseline idle floor |
-| **Peak Power Spike** | 14.18 W | **9.54 W** | 10.80 W | **-4.64 W (-32.7% peak spike suppression)** |
-| **Average CPU Temperature** | 45.1 °C | 44.4 °C | **44.3 °C** | **-0.8 °C cooler** |
-| **Effective Core Clock** | 95 MHz | 99 MHz | 99 MHz | Rapid C-state residency entry |
-| **GPU Clock / Power** | 960 MHz / 7.3 W | 560 MHz / 7.5 W | 560 MHz / 7.5 W | Idle clock clamped via ADLX Chill |
+| **Mean PPT** | 10.86 W | 9.93 W | **10.00 W** | **−8.0%** |
+| **Total Energy (30s)** | 326 J | 298 J | **300 J** | **−8.0%** |
+| **Avg CPU Temp** | 44.4 °C | 43.2 °C | **43.8 °C** | **−0.6 °C** |
+| **GPU Power** | 11.0 W | 9.2 W | **10.1 W** | **−0.9 W** |
 
-### Workload B: 10-Tab Web Browsing (Active Multitasking)
-Simulates intensive daily browsing using 10 concurrent tabs in an isolated Microsoft Edge instance (rich encyclopedic articles, syntax-highlighted code viewer, SVG live charts, 2D Canvas particle simulation, e-commerce catalog, Todo SPA, 500-row scrollable table, Web Worker background calculator, and news stream).
+> Note: AMDXSS profiles show slightly higher momentary peak PPT (C-state deep idle → sharper boost transients) but sustain lower mean power and temperature across the session.
 
-| Metric | Stock Windows Balanced | AMDXSS Balanced (Responsiveness) | AMDXSS Eco (Max Efficiency) | Delta vs Stock |
-| :--- | :--- | :--- | :--- | :--- |
-| **Mean Socket Power (PPT)** | 7.80 W | 7.83 W | **7.75 W** | **-0.05 W (-0.5%)** |
-| **Total Energy Consumed** | 233.9 Joules | 234.9 Joules | **232.7 Joules** | **-1.28 Joules saved** |
-| **Peak Socket Power** | 11.00 W | 11.52 W | **10.68 W** | **-0.32 W (-2.9%)** |
-| **Average CPU Temperature** | 44.7 °C | 44.3 °C | **44.1 °C** | **-0.6 °C cooler** |
-| **Peak CPU Temperature** | 48.9 °C | 48.7 °C | **48.3 °C** | **-0.6 °C cooler** |
-| **Effective Core Clock** | 103 MHz | 102 MHz | **97 MHz** | **-6 MHz (cleaner C-states)** |
-| **GPU Power** | 7.4 W | 7.3 W | **7.3 W** | **-0.1 W** |
+### B. Roblox 3D Game — Brookhaven RP (344K Live Players)
 
-### Key Architectural Takeaways
+Multi-cycle A/B benchmark: **2 cycles × 60s** per config (load/play/close), grafis **Level 10 Rata Kanan** (D3D11, 4x MSAA) at 1366x768 @ 60 Hz. Map liveness verified via Roblox Public API before launch.
 
-1. **Suppression of Micro-burst Spikes:** Stock Windows Balanced runs `PERFBOOSTMODE=2` (Aggressive), triggering momentary voltage and clock spikes up to 14.18 W on minor background JavaScript wakeups. AMDXSS caps transient overshoot at 9.54 W without perceived latency.
-2. **Foreground Priority vs Background Calming:** AMDXSS dynamically elevates the foreground interactive window to Above-Normal thread quantum while background tabs remain throttled, preventing background jitter from interrupting user tasks.
-3. **Reproducibility & Safety:** Zero modifications to personal browser profiles (run in isolated sandbox profile), zero driver restarts, zero reboots, and 100% reversible via baseline snapshot and dead-man's watchdog.
-4. **Full Technical Data & Sources:** Complete methodology, raw telemetry CSV, and grounded citations available in [`docs/BROWSER-BENCHMARK.md`](docs/BROWSER-BENCHMARK.md).
+| Config | Avg PPT | Avg Temp | Peak Temp | GPU Temp | GPU Clock | RAM |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Stock Windows** | 46.96 W | 62.7 °C | 68.9 °C | 55.8 °C | 1783 MHz | 2573 MB |
+| **AMDXSS Balanced** | 35.84 W | 62.5 °C | 70.1 °C | 56.3 °C | 1431 MHz | 2626 MB |
+| **AMDXSS Eco** | **26.20 W** | **58.0 °C** | **65.9 °C** | **52.6 °C** | 916 MHz | 2570 MB |
 
----
+**Eco vs Stock: −44.2% power, −4.7 °C CPU temp, −3.2 °C GPU temp.** Memory stable across all cycles (zero leaks). Audio pipeline (`audiodg.exe`) monitored as first-class telemetry.
 
-## Empirical Game Benchmark: Roblox 3D (Brookhaven RP — 345K Live Players)
+### Safety & Reproducibility
 
-**Target:** Brookhaven 🏡RP (Place ID `4924922222`) — 345,187 concurrent players at time of test.  
-**Protocol:** 2 back-to-back load/play/close cycles × 60s continuous 3D gameplay, grafis **Level 10 Rata Kanan** (D3D11, 4x MSAA, high-res textures) pada 1366x768 @ 60 Hz.  
-**Safety:** Windowed mode + audio muted (call-safe) + map dead/alive pre-check via Roblox Public API + dead-man watchdog + automated rollback.
+- Isolated `--user-data-dir` browser profile — personal data untouched
+- Windowed + muted game execution — call-safe, no audio interference
+- Map dead/alive pre-check before every game launch
+- Dead-man watchdog + automated rollback + baseline restore
+- Full reports: [`docs/BROWSER-BENCHMARK.md`](docs/BROWSER-BENCHMARK.md) · [`docs/GAME-BENCHMARK.md`](docs/GAME-BENCHMARK.md)
 
-| Cycle | Avg CPU PPT | Peak PPT | Avg CPU Temp | Peak CPU Temp | GPU Clock | GPU Temp | Game RAM |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Cycle 1** | 46.76 W | 52.15 W | 60.2 °C | 64.9 °C | 1629 MHz | 53.3 °C | 2657 MB |
-| **Cycle 2** | 47.18 W | 50.67 W | 64.8 °C | 67.9 °C | 1818 MHz | 57.7 °C | 2645 MB |
-| **Aggregate** | **46.97 W** | **52.15 W** | **62.5 °C** | **67.9 °C** | **1723 MHz** | **55.5 °C** | **2651 MB** |
-
-### Key Findings (3D Gaming)
-
-1. **Cool Under Fire:** Average CPU package held at **62.5 °C** (peak 67.9 °C) while rendering an open-world city map with 30 concurrent players — well below the 80 °C throttle point. The Vega 8 iGPU peaked at just **57.7 °C**.
-2. **Power Discipline:** Average socket draw of **46.97 W** is under the 5700G's 65 W TDP envelope even at Level 10 max graphics, leaving headroom for CPU physics and audio processing without power-limit throttling.
-3. **Memory Stability:** RAM allocation stayed rock-solid at **~2.65 GB** across both cycles — zero memory leaks across back-to-back load/teardown sessions.
-4. **Audio Pipeline Monitored:** The `audiodg.exe` audio processing engine is tracked as a first-class telemetry source (CPU% + RAM) to ensure sound DSP load is accounted for in the power/thermal budget.
-5. **Map Liveness Pre-Check:** Before every benchmark, the engine validates the target map is alive (player count, visits) via the Roblox Public Games API — dead maps are rejected before the client even launches.
-6. **Full Technical Data:** [`docs/GAME-BENCHMARK.md`](docs/GAME-BENCHMARK.md).
-
-Run any Roblox map with one command:
+Run any benchmark with one command:
 ```powershell
-xss bench-game 4924922222 60 2    # Brookhaven, 60s × 2 cycles
-xss bench-game 920587237 120 3    # Adopt Me, 120s × 3 cycles
+xss bench-browser                          # real-website A/B (3 configs)
+xss bench-game 4924922222 60 2            # Brookhaven, 60s x 2 cycles
+xss bench-game 920587237 120 3            # Adopt Me, 120s x 3 cycles
 ```
-
 ## Requirements
 
 - Windows 10 or 11
