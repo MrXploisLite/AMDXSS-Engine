@@ -916,6 +916,14 @@ def _run():
     if mode == 'stats':
         hrs = int(args[1]) if len(args) > 1 and args[1].isdigit() else 24
         return cmd_stats(cfg, hrs)
+    if mode in ('bench-browser', 'browser-bench'):
+        script = os.path.join(BASE, 'bench_browser.py')
+        return subprocess.call([sys.executable, script] + args[1:])
+    if mode in ('bench-game', 'game-bench'):
+        place_id = args[1] if len(args) > 1 else '1818'
+        duration = int(args[2]) if len(args) > 2 and args[2].isdigit() else 30
+        script = os.path.join(BASE, 'bench_game.py')
+        return subprocess.call([sys.executable, script, '--place-id', place_id, '--duration', str(duration)])
     if mode == 'set':
         if len(args) < 2 or args[1].lower() not in cfg['profiles']:
             print('usage: xss_engine.py set <%s>' % '|'.join(cfg['profiles']))
@@ -925,12 +933,14 @@ def _run():
         maxsec = int(args[1]) if len(args) > 1 and args[1].isdigit() else 0
         return cmd_daemon(cfg, maxsec)
     print('AMD XSS Engine v%s\n'
-          '  status             show active scheme, GPU/CPU and last state\n'
-          '  probe              ADLX support matrix\n'
-          '  telemetry [secs]   sample metrics into logs/xss-telemetry.csv\n'
-          '  stats [hours]      switch rate + power/thermal summary (default 24)\n'
-          '  set <profile>      %s\n'
-          '  daemon [secs]      policy loop (started by the logon task)\n' %
+          '  status               show active scheme, GPU/CPU and last state\n'
+          '  probe                ADLX support matrix\n'
+          '  telemetry [secs]     sample metrics into logs/xss-telemetry.csv\n'
+          '  stats [hours]        switch rate + power/thermal summary (default 24)\n'
+          '  bench-browser        10-tab browser & idle A/B power benchmark\n'
+          '  bench-game [placeId] automated Roblox 3D game benchmark\n'
+          '  set <profile>        %s\n'
+          '  daemon [secs]        policy loop (started by the logon task)\n' %
           (VERSION, '|'.join(cfg['profiles'])))
     return 0
 

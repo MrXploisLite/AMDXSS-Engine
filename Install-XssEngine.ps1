@@ -98,6 +98,7 @@ if (-not $InPlace) {
         'xss-daemon.cmd',
         'bench.py',
         'bench_browser.py',
+        'bench_game.py',
         'New-XssSchemes.ps1',
         'Uninstall-XssEngine.ps1'
     )
