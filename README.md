@@ -76,6 +76,35 @@ Simulates intensive daily browsing using 10 concurrent tabs in an isolated Micro
 3. **Reproducibility & Safety:** Zero modifications to personal browser profiles (run in isolated sandbox profile), zero driver restarts, zero reboots, and 100% reversible via baseline snapshot and dead-man's watchdog.
 4. **Full Technical Data & Sources:** Complete methodology, raw telemetry CSV, and grounded citations available in [`docs/BROWSER-BENCHMARK.md`](docs/BROWSER-BENCHMARK.md).
 
+---
+
+## Empirical Game Benchmark: Roblox 3D (Brookhaven RP — 345K Live Players)
+
+**Target:** Brookhaven 🏡RP (Place ID `4924922222`) — 345,187 concurrent players at time of test.  
+**Protocol:** 2 back-to-back load/play/close cycles × 60s continuous 3D gameplay, grafis **Level 10 Rata Kanan** (D3D11, 4x MSAA, high-res textures) pada 1366x768 @ 60 Hz.  
+**Safety:** Windowed mode + audio muted (call-safe) + map dead/alive pre-check via Roblox Public API + dead-man watchdog + automated rollback.
+
+| Cycle | Avg CPU PPT | Peak PPT | Avg CPU Temp | Peak CPU Temp | GPU Clock | GPU Temp | Game RAM |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Cycle 1** | 46.76 W | 52.15 W | 60.2 °C | 64.9 °C | 1629 MHz | 53.3 °C | 2657 MB |
+| **Cycle 2** | 47.18 W | 50.67 W | 64.8 °C | 67.9 °C | 1818 MHz | 57.7 °C | 2645 MB |
+| **Aggregate** | **46.97 W** | **52.15 W** | **62.5 °C** | **67.9 °C** | **1723 MHz** | **55.5 °C** | **2651 MB** |
+
+### Key Findings (3D Gaming)
+
+1. **Cool Under Fire:** Average CPU package held at **62.5 °C** (peak 67.9 °C) while rendering an open-world city map with 30 concurrent players — well below the 80 °C throttle point. The Vega 8 iGPU peaked at just **57.7 °C**.
+2. **Power Discipline:** Average socket draw of **46.97 W** is under the 5700G's 65 W TDP envelope even at Level 10 max graphics, leaving headroom for CPU physics and audio processing without power-limit throttling.
+3. **Memory Stability:** RAM allocation stayed rock-solid at **~2.65 GB** across both cycles — zero memory leaks across back-to-back load/teardown sessions.
+4. **Audio Pipeline Monitored:** The `audiodg.exe` audio processing engine is tracked as a first-class telemetry source (CPU% + RAM) to ensure sound DSP load is accounted for in the power/thermal budget.
+5. **Map Liveness Pre-Check:** Before every benchmark, the engine validates the target map is alive (player count, visits) via the Roblox Public Games API — dead maps are rejected before the client even launches.
+6. **Full Technical Data:** [`docs/GAME-BENCHMARK.md`](docs/GAME-BENCHMARK.md).
+
+Run any Roblox map with one command:
+```powershell
+xss bench-game 4924922222 60 2    # Brookhaven, 60s × 2 cycles
+xss bench-game 920587237 120 3    # Adopt Me, 120s × 3 cycles
+```
+
 ## Requirements
 
 - Windows 10 or 11
@@ -160,6 +189,7 @@ xss_engine.py       daemon, CLI, policy, ADLX wrapper (PEP 8 module name)
 rm_sdk.py           AMD Ryzen Master Monitoring SDK bridge (CPU telemetry)
 bench.py            performance & no-regression benchmark runner (v0.8)
 bench_browser.py    isolated 10-tab browser & idle A/B power benchmark
+bench_game.py       automated Roblox 3D game benchmark (multi-cycle, map liveness)
 xss_config.json     profiles, rules, poll interval
 xss.cmd             console launcher
 xss-daemon.cmd      hidden daemon launcher
